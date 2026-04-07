@@ -7,6 +7,7 @@ AI-powered conversational analytics for Rappi operations data — ask questions 
 - Python 3.11+
 - Node 18+
 - OpenAI API key
+- Poetry
 
 ## Setup
 
@@ -21,7 +22,29 @@ cp backend/.env.example backend/.env
 
 Place the Excel data file at `data/rappi_data.xlsx`. The backend loads this workbook directly and creates `data/rappi.db` on startup.
 
-### 3. Backend
+### 3. Backend (Poetry, no manual activation)
+
+```bash
+cd backend
+poetry install
+poetry run uvicorn app:app --reload
+```
+
+Or from the project root:
+
+```bash
+poetry -C backend install
+poetry -C backend run uvicorn app:app --reload
+```
+
+If Poetry is not installed yet:
+
+```bash
+pipx install poetry
+# or: pip install poetry
+```
+
+Legacy pip path (optional):
 
 ```bash
 cd backend
