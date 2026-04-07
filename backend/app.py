@@ -52,7 +52,7 @@ class InsightsResponse(BaseModel):
 
 @app.on_event("startup")
 def startup() -> None:
-    """Load data from CSVs into SQLite on server start."""
+    """Load data from the Excel workbook into SQLite on server start."""
     try:
         db.load_data()
     except FileNotFoundError as exc:
@@ -74,7 +74,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     if db._connection is None:
         raise HTTPException(
             status_code=503,
-            detail="Database not loaded. Place input_metrics.csv and orders.csv in data/ and restart.",
+            detail="Database not loaded. Place rappi_data.xlsx in data/ and restart.",
         )
 
     session_id = request.session_id or str(uuid.uuid4())

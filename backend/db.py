@@ -6,18 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import DB_PATH, METRICS_CSV_PATH, ORDERS_CSV_PATH
+from config import DB_PATH, EXCEL_PATH
 
 logger = logging.getLogger(__name__)
 
 _connection: sqlite3.Connection | None = None
 
-# Column names as they appear in the CSVs
-WEEK_COLS_METRICS = [
-    "L8W_VALUE", "L7W_VALUE", "L6W_VALUE", "L5W_VALUE",
-    "L4W_VALUE", "L3W_VALUE", "L2W_VALUE", "L1W_VALUE", "L0W_VALUE",
-]
-WEEK_COLS_ORDERS = ["L8W", "L7W", "L6W", "L5W", "L4W", "L3W", "L2W", "L1W", "L0W"]
+METRICS_SHEET = "RAW_INPUT_METRICS"
+ORDERS_SHEET = "RAW_ORDERS"
 
 
 def get_connection() -> sqlite3.Connection:
@@ -28,29 +24,33 @@ def get_connection() -> sqlite3.Connection:
 
 
 def load_data(
-    metrics_path: Path = METRICS_CSV_PATH,
-    orders_path: Path = ORDERS_CSV_PATH,
+    excel_path: Path = EXCEL_PATH,
     db_path: Path = DB_PATH,
 ) -> None:
-    """Load CSVs into SQLite and create the orders_enriched view."""
+    """Load the workbook into SQLite and create the orders_enriched view."""
     global _connection
 
-    if not metrics_path.exists():
+    if not excel_path.exists():
         raise FileNotFoundError(
-            f"Metrics CSV not found at {metrics_path}. "
-            "Place input_metrics.csv in the data/ folder."
-        )
-    if not orders_path.exists():
-        raise FileNotFoundError(
-            f"Orders CSV not found at {orders_path}. "
-            "Place orders.csv in the data/ folder."
+            f"Workbook not found at {excel_path}. "
+            "Place rappi_data.xlsx in the data/ folder."
         )
 
-    logger.info("Loading %s ...", metrics_path.name)
-    df_metrics = pd.read_csv(metrics_path)
+    logger.info("Loading workbook %s ...", excel_path.name)
+    workbook = pd.ExcelFile(excel_path)
+    if METRICS_SHEET not in workbook.sheet_names:
+        raise ValueError(
+            f"Sheet {METRICS_SHEET!r} not found in {excel_path.name}. "
+            f"Available sheets: {workbook.sheet_names}"
+        )
+    if ORDERS_SHEET not in workbook.sheet_names:
+        raise ValueError(
+            f"Sheet {ORDERS_SHEET!r} not found in {excel_path.name}. "
+            f"Available sheets: {workbook.sheet_names}"
+        )
 
-    logger.info("Loading %s ...", orders_path.name)
-    df_orders = pd.read_csv(orders_path)
+    df_metrics = pd.read_excel(workbook, sheet_name=METRICS_SHEET).dropna(how="all")
+    df_orders = pd.read_excel(workbook, sheet_name=ORDERS_SHEET).dropna(how="all")
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
@@ -62,7 +62,7 @@ def load_data(
     conn.execute("""
         CREATE VIEW orders_enriched AS
         SELECT
-            o.COUNTRY, o.CITY, o.ZONE,
+            o.COUNTRY, o.CITY, o.ZONE, o.METRIC,
             o.L8W, o.L7W, o.L6W, o.L5W,
             o.L4W, o.L3W, o.L2W, o.L1W, o.L0W,
             z.ZONE_TYPE,

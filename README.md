@@ -19,7 +19,7 @@ cp backend/.env.example backend/.env
 
 ### 2. Data
 
-Place the Excel data file at `data/rappi_data.xlsx`.
+Place the Excel data file at `data/rappi_data.xlsx`. The backend loads this workbook directly and creates `data/rappi.db` on startup.
 
 ### 3. Backend
 
@@ -28,6 +28,8 @@ cd backend
 pip install -r requirements.txt
 uvicorn app:app --reload
 ```
+
+The first backend start loads the workbook into SQLite automatically. If you change the Excel file and want to rebuild the database, delete `data/rappi.db` and start the backend again.
 
 ### 4. Frontend
 

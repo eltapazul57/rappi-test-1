@@ -12,9 +12,6 @@ DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "rappi.db"
 EXCEL_PATH = DATA_DIR / "rappi_data.xlsx"
 
-METRICS_CSV_PATH: Path = DATA_DIR / os.getenv("METRICS_CSV_FILENAME", "input_metrics.csv")
-ORDERS_CSV_PATH: Path = DATA_DIR / os.getenv("ORDERS_CSV_FILENAME", "orders.csv")
-
 OPENAI_API_KEY: str = os.environ["OPENAI_API_KEY"]
 OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
 MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "1000"))
