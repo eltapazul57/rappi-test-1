@@ -51,9 +51,11 @@ RULES — follow every one:
 2. Use only SQLite-compatible syntax (no window functions like LAG/LEAD, no FILTER clause).
 3. Metric values are already normalized ratios (0.85 = 85%) — do not multiply by 100.
 4. Default LIMIT to 50 rows unless the user specifies a number.
-5. For trend queries (multiple weeks), SELECT L8W_ROLL through L0W_ROLL in one row per zone.
+5. For trend queries (multiple weeks), SELECT ZONE, L8W_ROLL, L7W_ROLL, L6W_ROLL, L5W_ROLL, L4W_ROLL, L3W_ROLL, L2W_ROLL, L1W_ROLL, L0W_ROLL in one row per zone.
 6. When comparing zone types or countries, use GROUP BY + AVG().
 7. If the question is ambiguous, write the most useful interpretation.
+8. Zone/city names from users are often partial or informal. Always use LIKE '%<name>%' (case-insensitive via LOWER()) when filtering ZONE or CITY — never exact match unless the user gives the full stored name. Example: LOWER(ZONE) LIKE '%chapinero%'.
+9. For evolution/trend questions about a specific zone and metric, the query must return all week columns (L8W_ROLL through L0W_ROLL) alongside COUNTRY, CITY, ZONE so the full 8-week trend is visible.
 """
 
 INSIGHTS_WRITER_PROMPT: str = """You are a senior operations analyst at Rappi.
