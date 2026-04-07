@@ -216,6 +216,16 @@ def debug_correlations() -> list[dict]:
     return result.to_dict(orient="records")
 
 
+@app.get("/debug/insights/opportunities")
+def debug_opportunities() -> list[dict]:
+    """Raw output of detect_opportunities — zones with order growth and metric gaps."""
+    conn = db.get_connection()
+    df_metrics = pd.read_sql("SELECT * FROM input_metrics", conn)
+    df_orders = pd.read_sql("SELECT * FROM orders", conn)
+    result = insights_module.detect_opportunities(df_metrics, df_orders)
+    return result.to_dict(orient="records")
+
+
 @app.get("/debug/insights/report")
 def debug_report() -> dict:
     """Raw structured Markdown from generate_report — no LLM, instant response."""

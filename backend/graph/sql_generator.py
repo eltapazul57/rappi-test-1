@@ -5,7 +5,7 @@ import logging
 from openai import OpenAI
 
 import db
-from config import OPENAI_API_KEY, OPENAI_MODEL
+from config import MAX_RETRIES, OPENAI_API_KEY, OPENAI_MODEL
 from graph.state import ChatState
 from prompts import BOT_SYSTEM_PROMPT
 
@@ -34,11 +34,14 @@ def sql_generator(state: ChatState) -> ChatState:
     messages.append({"role": "user", "content": state["user_message"]})
 
     if state.get("sql_error"):
+        retry_attempt = max(1, state.get("retry_count", 1))
         messages.append({
             "role": "user",
             "content": (
-                f"The previous SQL failed with: {state['sql_error']}\n"
-                "Please fix it and return only the corrected SQL query."
+                "This is a SQL retry.\n"
+                f"Attempt: {retry_attempt} of {MAX_RETRIES}.\n"
+                f"SQLite error from the previous attempt: {state['sql_error']}\n"
+                "Fix the query considering that error and return ONLY the corrected SQL query."
             ),
         })
 
