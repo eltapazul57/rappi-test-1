@@ -21,6 +21,10 @@ WEEK_COLS = [
 # Metrics where a lower value is better; direction logic is flipped for these.
 LOWER_BETTER = {"Restaurants Markdowns / GMV"}
 
+# Metrics that are NOT simple 0-1 ratios — displayed as raw numbers, not percentages.
+# Gross Profit UE is margin per order (e.g. 0.05 means $0.05, not 5%).
+NON_RATIO_METRICS = {"Gross Profit UE"}
+
 OPPORTUNITY_ORDER_GROWTH_THRESHOLD_PCT = 10.0
 
 logger = logging.getLogger(__name__)
@@ -373,13 +377,23 @@ def detect_opportunities(
     )
 
 
-def _fmt_val(val: float) -> str:
-    """Format a metric value as a percentage string rounded to 1 decimal."""
+def _fmt_val(val: float, metric: str = "") -> str:
+    """Format a metric value appropriately based on its type.
+
+    Non-ratio metrics (e.g. Gross Profit UE) are shown as raw numbers.
+    All other metrics are ratios and shown as percentages.
+    """
+    if metric in NON_RATIO_METRICS:
+        return f"{val:.4f}"
     return f"{val * 100:.1f}%"
 
 
-def _fmt_delta(prev: float, curr: float) -> str:
+def _fmt_delta(prev: float, curr: float, metric: str = "") -> str:
     """Describe an absolute change between two metric values in plain language."""
+    if metric in NON_RATIO_METRICS:
+        delta = curr - prev
+        sign = "+" if delta >= 0 else ""
+        return f"{sign}{delta:.4f}"
     delta = (curr - prev) * 100
     sign = "+" if delta >= 0 else ""
     return f"{sign}{delta:.1f} percentage points"
@@ -392,48 +406,66 @@ def _executive_summary(
     df_correlations: pd.DataFrame,
     df_opportunities: pd.DataFrame,
 ) -> list[str]:
-    """Build top 3-5 critical findings in plain executive language."""
+    """Build top 3-5 critical findings in plain executive language.
+
+    Each finding is drawn from a different analysis category to ensure
+    diversity across zones and countries.
+    """
     points: list[str] = []
 
     if not df_anomalies.empty:
         det = df_anomalies[df_anomalies["direction"] == "deterioration"]
         row = (det.head(1) if not det.empty else df_anomalies.head(1)).iloc[0]
-        delta = _fmt_delta(row["prev_value"], row["current_value"])
+        metric = row["METRIC"]
+        delta = _fmt_delta(row["prev_value"], row["current_value"], metric)
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: {row['METRIC']} dropped {delta} week-over-week "
-            f"({_fmt_val(row['prev_value'])} last week, {_fmt_val(row['current_value'])} this week). Immediate attention required."
+            f"{row['COUNTRY']} / {row['ZONE']}: {metric} dropped {delta} week-over-week "
+            f"({_fmt_val(row['prev_value'], metric)} → {_fmt_val(row['current_value'], metric)}). "
+            f"Immediate attention required."
         )
 
     if not df_trends.empty:
-        row = df_trends.iloc[0]
+        # Pick the worst trend from a different country than the anomaly finding, if possible.
+        seen_countries = {p.split(" / ")[0] for p in points}
+        candidates = df_trends[~df_trends["COUNTRY"].isin(seen_countries)]
+        row = (candidates.iloc[0] if not candidates.empty else df_trends.iloc[0])
+        metric = row["METRIC"]
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: {row['METRIC']} has been declining for "
+            f"{row['COUNTRY']} / {row['ZONE']}: {metric} has been declining for "
             f"{int(row['streak_weeks'])} consecutive weeks "
-            f"({_fmt_val(row['start_value'])} down to {_fmt_val(row['current_value'])}). "
-            f"This is a structural issue, not a one-off fluctuation."
+            f"({_fmt_val(row['start_value'], metric)} → {_fmt_val(row['current_value'], metric)}). "
+            f"Structural issue — will not self-correct without intervention."
         )
 
     if not df_opportunities.empty:
-        row = df_opportunities.iloc[0]
+        seen_countries = {p.split(" / ")[0] for p in points}
+        candidates = df_opportunities[~df_opportunities["COUNTRY"].isin(seen_countries)]
+        row = (candidates.iloc[0] if not candidates.empty else df_opportunities.iloc[0])
+        metric = row["METRIC"]
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: demand is up {row['orders_growth_pct']:.0f}% in the last 5 weeks "
-            f"but {row['METRIC']} is {row['peer_gap_pct']:.0f} points below similar zones. "
+            f"{row['COUNTRY']} / {row['ZONE']}: demand is up {row['orders_growth_pct']:.0f}% over 5 weeks "
+            f"but {metric} is {row['peer_gap_pct']:.0f} points below similar zones. "
             f"Growth is at risk if operations do not catch up."
         )
 
-    under = df_benchmarks[df_benchmarks["status"] == "underperforming"] if not df_benchmarks.empty else df_benchmarks
-    if not under.empty:
-        row = under.iloc[0]
-        points.append(
-            f"{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}): {row['METRIC']} is at {_fmt_val(row['value'])}, "
-            f"compared to {_fmt_val(row['group_mean'])} in similar zones in the same country. "
-            f"Significant gap versus peers."
-        )
+    if not df_benchmarks.empty:
+        under = df_benchmarks[df_benchmarks["status"] == "underperforming"]
+        if not under.empty:
+            seen_countries = {p.split(" / ")[0] for p in points}
+            candidates = under[~under["COUNTRY"].isin(seen_countries)]
+            row = (candidates.iloc[0] if not candidates.empty else under.iloc[0])
+            metric = row["METRIC"]
+            points.append(
+                f"{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}): {metric} at "
+                f"{_fmt_val(row['value'], metric)}, vs {_fmt_val(row['group_mean'], metric)} peer average. "
+                f"Significant gap vs similar zones in the same country."
+            )
 
     if not df_correlations.empty:
         row = df_correlations.iloc[0]
         points.append(
-            f"Zones with higher {row['metric_1']} also tend to have higher {row['metric_2']} (r={row['correlation']:.2f}). "
+            f"Zones with higher {row['metric_1']} also tend to have higher {row['metric_2']} "
+            f"(r={row['correlation']:.2f}). "
             f"Improving one is likely to drive the other — consider joint interventions."
         )
 
@@ -452,49 +484,57 @@ def _prioritized_actions(
 
     if not df_trends.empty:
         row = df_trends.iloc[0]
+        metric = row["METRIC"]
         score = 100 + float(row["streak_weeks"]) * 10
         scored.append((
             score,
-            f"**{row['COUNTRY']} / {row['ZONE']} — {row['METRIC']}:** {int(row['streak_weeks'])} weeks of consecutive decline. "
+            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** {int(row['streak_weeks'])} weeks of consecutive decline. "
             f"Assign an owner and define a recovery target for next week.",
         ))
 
     if not df_anomalies.empty:
         det = df_anomalies[df_anomalies["direction"] == "deterioration"]
         row = (det.head(1) if not det.empty else df_anomalies.head(1)).iloc[0]
+        metric = row["METRIC"]
         score = 90 + abs(float(row["change_pct"]))
         scored.append((
             score,
-            f"**{row['COUNTRY']} / {row['ZONE']} — {row['METRIC']}:** dropped {_fmt_delta(row['prev_value'], row['current_value'])} this week. "
+            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** "
+            f"dropped {_fmt_delta(row['prev_value'], row['current_value'], metric)} this week. "
             f"Investigate root cause within 48 hours and define containment actions.",
         ))
 
     if not df_opportunities.empty:
         row = df_opportunities.iloc[0]
+        metric = row["METRIC"]
         score = 85 + float(row["orders_growth_pct"]) + abs(float(row["z_score"])) * 10
         scored.append((
             score,
-            f"**{row['COUNTRY']} / {row['ZONE']} — {row['METRIC']}:** orders up {row['orders_growth_pct']:.0f}% but metric is "
-            f"{row['peer_gap_pct']:.0f} points below peers. Close the gap before demand stabilizes.",
+            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** orders up {row['orders_growth_pct']:.0f}% "
+            f"but metric is {row['peer_gap_pct']:.0f} points below peers. "
+            f"Close the gap before demand stabilizes.",
         ))
 
-    under = df_benchmarks[df_benchmarks["status"] == "underperforming"] if not df_benchmarks.empty else df_benchmarks
-    if not under.empty:
-        row = under.iloc[0]
-        score = 70 + abs(float(row["z_score"])) * 10
-        scored.append((
-            score,
-            f"**{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}) — {row['METRIC']}:** at {_fmt_val(row['value'])}, "
-            f"well below the {_fmt_val(row['group_mean'])} peer average. "
-            f"Review operations against top-performing zones in the same segment.",
-        ))
+    if not df_benchmarks.empty:
+        under = df_benchmarks[df_benchmarks["status"] == "underperforming"]
+        if not under.empty:
+            row = under.iloc[0]
+            metric = row["METRIC"]
+            score = 70 + abs(float(row["z_score"])) * 10
+            scored.append((
+                score,
+                f"**{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}) — {metric}:** "
+                f"at {_fmt_val(row['value'], metric)}, well below the {_fmt_val(row['group_mean'], metric)} peer average. "
+                f"Review operations against top-performing zones in the same segment.",
+            ))
 
     if not df_correlations.empty:
         row = df_correlations.iloc[0]
         score = 60 + abs(float(row["correlation"])) * 20
         scored.append((
             score,
-            f"**Leverage point — {row['metric_1']} and {row['metric_2']}:** these two metrics move together (r={row['correlation']:.2f}). "
+            f"**Leverage point — {row['metric_1']} and {row['metric_2']}:** "
+            f"these two metrics move together (r={row['correlation']:.2f}). "
             f"Interventions targeting {row['metric_1']} are likely to improve {row['metric_2']} as well.",
         ))
 
@@ -502,13 +542,12 @@ def _prioritized_actions(
         return ["No high-priority actions identified due to limited valid signals in the current cut."]
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    unique_actions: list[str] = []
     seen: set[str] = set()
+    unique_actions: list[str] = []
     for _, action in scored:
-        if action in seen:
-            continue
-        seen.add(action)
-        unique_actions.append(action)
+        if action not in seen:
+            seen.add(action)
+            unique_actions.append(action)
         if len(unique_actions) == 3:
             break
     return unique_actions
@@ -525,6 +564,18 @@ def _dedup(df: pd.DataFrame, sort_col: str, ascending: bool = False) -> pd.DataF
     )
 
 
+def _high_priority_zones(df_metrics: pd.DataFrame) -> list[str]:
+    """Return a sorted list of 'Country / Zone' strings flagged as High Priority."""
+    if "ZONE_PRIORITIZATION" not in df_metrics.columns:
+        return []
+    hp = df_metrics[df_metrics["ZONE_PRIORITIZATION"] == "High Priority"]
+    if hp.empty:
+        return []
+    return sorted(
+        {f"{r['COUNTRY']} / {r['ZONE']}" for _, r in hp[["COUNTRY", "ZONE"]].drop_duplicates().iterrows()}
+    )
+
+
 def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     """Run all insight functions and return a compact executive Markdown report."""
     df_anomalies = _dedup(detect_anomalies(df_metrics), "change_pct", ascending=False)
@@ -532,12 +583,23 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     df_benchmarks = _dedup(benchmark_zones(df_metrics), "z_score", ascending=False)
     df_correlations = compute_correlations(df_metrics)
     df_opportunities = detect_opportunities(df_metrics, df_orders)
+    high_priority_zones = _high_priority_zones(df_metrics)
 
     TOP_N = 5
     lines: list[str] = []
 
+    # --- High Priority Zone Watchlist ---
+    if high_priority_zones:
+        lines.append("## High Priority Zone Watchlist")
+        lines.append(
+            "The following zones are flagged as **High Priority** in the operational plan. "
+            "All findings below should be reviewed with these zones in mind first."
+        )
+        for zone_label in high_priority_zones[:10]:
+            lines.append(f"- {zone_label}")
+
     # --- Executive Summary ---
-    lines.append("## Executive Summary")
+    lines.append("\n## Executive Summary" if high_priority_zones else "## Executive Summary")
     for point in _executive_summary(
         df_anomalies=df_anomalies,
         df_trends=df_trends,
@@ -569,19 +631,18 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
         lines.append("\nNo high-confidence opportunities found this week.")
     else:
         for _, r in df_opportunities.head(TOP_N).iterrows():
+            metric = r["METRIC"]
+            lines.append(f"\n**{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']})")
             lines.append(
-                f"\n**{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']})"
+                f"- Metric lagging: **{metric}** — currently {_fmt_val(r['value'], metric)}, "
+                f"peers average {_fmt_val(r['group_mean'], metric)} (gap: {r['peer_gap_pct']:.0f} points below)"
             )
             lines.append(
-                f"- Metric lagging: **{r['METRIC']}** — currently {_fmt_val(r['value'])}, "
-                f"peers average {_fmt_val(r['group_mean'])} (gap: {r['peer_gap_pct']:.0f} points below)"
-            )
-            lines.append(
-                f"- Order growth: {r['orders_prev_5w']:.0f} orders 5 weeks ago vs {r['orders_current']:.0f} today "
+                f"- Order growth: {r['orders_prev_5w']:.0f} orders 5 weeks ago → {r['orders_current']:.0f} today "
                 f"({r['orders_growth_pct']:+.0f}%)"
             )
             lines.append(
-                f"- Action: Address {r['METRIC']} in this zone within the next 2 weeks to avoid losing the demand spike."
+                f"- Action: Address {metric} in this zone within the next 2 weeks to avoid losing the demand spike."
             )
 
     # --- Anomalies ---
@@ -598,18 +659,20 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
         if not det.empty:
             lines.append("\n**Deteriorations — assign an owner this week**")
             for _, r in det.iterrows():
+                metric = r["METRIC"]
                 lines.append(
-                    f"- **{r['COUNTRY']} / {r['ZONE']}** — {r['METRIC']}: "
-                    f"went from {_fmt_val(r['prev_value'])} to {_fmt_val(r['current_value'])} "
-                    f"({_fmt_delta(r['prev_value'], r['current_value'])})"
+                    f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
+                    f"{_fmt_val(r['prev_value'], metric)} → {_fmt_val(r['current_value'], metric)} "
+                    f"({_fmt_delta(r['prev_value'], r['current_value'], metric)})"
                 )
         if not imp.empty:
             lines.append("\n**Improvements — replicate the playbook**")
             for _, r in imp.iterrows():
+                metric = r["METRIC"]
                 lines.append(
-                    f"- **{r['COUNTRY']} / {r['ZONE']}** — {r['METRIC']}: "
-                    f"went from {_fmt_val(r['prev_value'])} to {_fmt_val(r['current_value'])} "
-                    f"({_fmt_delta(r['prev_value'], r['current_value'])})"
+                    f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
+                    f"{_fmt_val(r['prev_value'], metric)} → {_fmt_val(r['current_value'], metric)} "
+                    f"({_fmt_delta(r['prev_value'], r['current_value'], metric)})"
                 )
 
     # --- Concerning Trends ---
@@ -622,10 +685,11 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
         lines.append("\nNo concerning trends detected.")
     else:
         for _, r in df_trends.head(TOP_N).iterrows():
+            metric = r["METRIC"]
             lines.append(
-                f"- **{r['COUNTRY']} / {r['ZONE']}** — {r['METRIC']}: "
+                f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
                 f"declining for {int(r['streak_weeks'])} weeks in a row "
-                f"({_fmt_val(r['start_value'])} down to {_fmt_val(r['current_value'])}). "
+                f"({_fmt_val(r['start_value'], metric)} → {_fmt_val(r['current_value'], metric)}). "
                 f"Trigger a recovery sprint with weekly check-ins."
             )
 
@@ -643,16 +707,18 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
         if not under.empty:
             lines.append("\n**Underperforming zones** (review operations vs top peers)")
             for _, r in under.iterrows():
+                metric = r["METRIC"]
                 lines.append(
-                    f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {r['METRIC']}: "
-                    f"{_fmt_val(r['value'])} vs {_fmt_val(r['group_mean'])} peer average"
+                    f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {metric}: "
+                    f"{_fmt_val(r['value'], metric)} vs {_fmt_val(r['group_mean'], metric)} peer average"
                 )
         if not over.empty:
             lines.append("\n**Outperforming zones** (use these as benchmarks for the rest)")
             for _, r in over.iterrows():
+                metric = r["METRIC"]
                 lines.append(
-                    f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {r['METRIC']}: "
-                    f"{_fmt_val(r['value'])} vs {_fmt_val(r['group_mean'])} peer average"
+                    f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {metric}: "
+                    f"{_fmt_val(r['value'], metric)} vs {_fmt_val(r['group_mean'], metric)} peer average"
                 )
 
     # --- Correlations ---

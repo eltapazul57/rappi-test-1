@@ -46,40 +46,23 @@ DIMENSION VALUES:
   - ZONE_TYPE: 'Wealthy' or 'Non Wealthy'
   - ZONE_PRIORITIZATION: 'High Priority', 'Prioritized', 'Not Prioritized'
 
+BUSINESS TERM MAPPINGS (translate these before generating SQL):
+  - "zonas problemáticas" / "problem zones" → zones where 3 or more metrics are below the country average in L0W_ROLL
+  - "zonas con problemas" → same as above
+  - "zonas de alto rendimiento" / "top zones" → zones where most metrics are above country average
+  - "zonas críticas" → zones flagged as High Priority in ZONE_PRIORITIZATION with deteriorating metrics
+
 RULES — follow every one:
 1. Return ONLY the SQL query. No explanations, no markdown code fences, no commentary.
-2. Use only SQLite-compatible syntax (no window functions like LAG/LEAD, no FILTER clause).
-3. Metric values are already normalized ratios (0.85 = 85%) — do not multiply by 100.
+2. Use SQLite-compatible syntax. Window functions (LAG, LEAD, ROW_NUMBER, RANK) are supported from SQLite 3.25+. The FILTER clause is NOT supported — use CASE WHEN instead.
+3. Metric values are already normalized ratios (0.85 = 85%) — do not multiply by 100 in the query.
 4. Default LIMIT to 50 rows unless the user specifies a number.
 5. For trend queries (multiple weeks), SELECT ZONE, L8W_ROLL, L7W_ROLL, L6W_ROLL, L5W_ROLL, L4W_ROLL, L3W_ROLL, L2W_ROLL, L1W_ROLL, L0W_ROLL in one row per zone.
 6. When comparing zone types or countries, use GROUP BY + AVG().
 7. If the question is ambiguous, write the most useful interpretation.
 8. Zone/city names from users are often partial or informal. Always use LIKE '%<name>%' (case-insensitive via LOWER()) when filtering ZONE or CITY — never exact match unless the user gives the full stored name. Example: LOWER(ZONE) LIKE '%chapinero%'.
 9. For evolution/trend questions about a specific zone and metric, the query must return all week columns (L8W_ROLL through L0W_ROLL) alongside COUNTRY, CITY, ZONE so the full 8-week trend is visible.
+10. For inference questions ("what explains X", "why is Y growing"), join orders_enriched with input_metrics to surface both order volume and operational metrics for the same zones. Show the metrics most likely correlated with the trend.
+11. When the user asks about "High Priority" zones or operational risk, always include ZONE_PRIORITIZATION in the SELECT and prefer filtering to High Priority zones first.
 """
 
-INSIGHTS_WRITER_PROMPT: str = """You are a senior operations analyst at Rappi.
-You have received automatically computed insights from the data.
-Write a concise, executive-level report in Markdown.
-
-Structure:
-## Executive Summary
-Top 3-5 critical findings in bullet points.
-
-## Anomalies
-Zones with >10% week-over-week change. For each: zone, metric, change %, and one-line implication.
-
-## Concerning Trends
-Metrics declining 3+ consecutive weeks. For each: zone, metric, weeks of decline, recommended action.
-
-## Benchmarking
-Zones underperforming peers. For each: zone, peer group, gap, and one-line recommendation.
-
-## Correlations
-Metric pairs with strong relationships. For each: metrics, direction, business interpretation.
-
-## Recommended Actions
-Top 3 prioritized actions with expected impact.
-
-Tone: direct, data-driven, actionable. Avoid filler phrases.
-"""

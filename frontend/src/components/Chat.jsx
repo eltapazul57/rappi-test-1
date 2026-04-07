@@ -10,6 +10,47 @@ const SUGGESTIONS = [
   '¿Cuál es el promedio de Lead Penetration por país?',
 ]
 
+// Metric columns whose values are raw ratios (0–1) and should be shown as percentages.
+// Gross Profit UE is a money-like value, not a ratio — keep it as a decimal.
+const NON_RATIO_COLS = new Set(['Gross Profit UE'])
+
+// Week columns in orders table hold raw counts, not ratios.
+const ORDER_WEEK_COLS = new Set(['L8W', 'L7W', 'L6W', 'L5W', 'L4W', 'L3W', 'L2W', 'L1W', 'L0W'])
+const METRIC_WEEK_COLS = new Set([
+  'L8W_ROLL', 'L7W_ROLL', 'L6W_ROLL', 'L5W_ROLL',
+  'L4W_ROLL', 'L3W_ROLL', 'L2W_ROLL', 'L1W_ROLL', 'L0W_ROLL',
+])
+
+function formatCell(col, val, row) {
+  if (val === null || val === undefined) return '—'
+  if (typeof val !== 'number') return val
+
+  // Integer-like values (order counts, IDs) → plain integer
+  if (Number.isInteger(val)) return val.toLocaleString()
+
+  // Order week columns are raw counts, not ratios
+  if (ORDER_WEEK_COLS.has(col)) return val.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+  // Metric week columns: check if the row's METRIC is a non-ratio type
+  if (METRIC_WEEK_COLS.has(col)) {
+    if (NON_RATIO_COLS.has(row.METRIC)) return val.toFixed(4)
+    return `${(val * 100).toFixed(1)}%`
+  }
+
+  // Standalone value/group_mean columns from insights-style queries
+  if ((col === 'value' || col === 'group_mean') && !NON_RATIO_COLS.has(row.METRIC)) {
+    if (val > 0 && val <= 1) return `${(val * 100).toFixed(1)}%`
+  }
+
+  // Single metric value columns (L0W_ROLL used in aggregations, etc.)
+  // Heuristic: if the value is between 0 and 1 exclusive and the column looks like a metric result
+  if (val > 0 && val < 1 && (col.includes('AVG') || col.includes('avg') || col === 'L0W_ROLL')) {
+    return `${(val * 100).toFixed(1)}%`
+  }
+
+  return val.toFixed(4)
+}
+
 function DataTable({ data }) {
   if (!data || data.length === 0) return null
   const cols = Object.keys(data[0])
@@ -24,14 +65,9 @@ function DataTable({ data }) {
         <tbody>
           {data.map((row, i) => (
             <tr key={i}>
-              {cols.map(c => {
-                const val = row[c]
-                const formatted =
-                  typeof val === 'number'
-                    ? Number.isInteger(val) ? val : val.toFixed(4)
-                    : val ?? '—'
-                return <td key={c}>{formatted}</td>
-              })}
+              {cols.map(c => (
+                <td key={c}>{formatCell(c, row[c], row)}</td>
+              ))}
             </tr>
           ))}
         </tbody>
