@@ -8,7 +8,7 @@ Flow:
     └─ general ─────────────────────────────────────── ──> response_formatter
 """
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from graph.error_handler import error_handler
 from graph.intent_classifier import intent_classifier
@@ -29,7 +29,7 @@ def build_graph() -> StateGraph:
     graph.add_node("error_handler", error_handler)
     graph.add_node("response_formatter", response_formatter)
 
-    graph.set_entry_point("intent_classifier")
+    graph.add_edge(START, "intent_classifier")
     graph.add_conditional_edges("intent_classifier", route_intent)
     graph.add_edge("sql_generator", "sql_executor")
     graph.add_conditional_edges("sql_executor", route_sql_result)

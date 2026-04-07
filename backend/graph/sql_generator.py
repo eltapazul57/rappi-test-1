@@ -1,13 +1,53 @@
-"""Node: generate SQL from natural language."""
+"""Node: generate a SQLite query from the user's natural language question."""
 
 import logging
 
+from openai import OpenAI
+
+import db
+from config import OPENAI_API_KEY, OPENAI_MODEL
 from graph.state import ChatState
+from prompts import BOT_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
+
+_client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+def _clean_sql(raw: str) -> str:
+    """Strip markdown code fences if the model wrapped the SQL in them."""
+    text = raw.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        # drop first line (```sql or ```) and last line (```)
+        text = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+    return text.strip()
 
 
 def sql_generator(state: ChatState) -> ChatState:
     """Generate a SQLite-compatible SQL query from the user message."""
-    # TODO: implement — call LLM with BOT_SYSTEM_PROMPT + conversation history
-    raise NotImplementedError
+    schema = db.get_schema()
+    system_prompt = BOT_SYSTEM_PROMPT.format(schema=schema)
+
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(state["messages"])
+    messages.append({"role": "user", "content": state["user_message"]})
+
+    if state.get("sql_error"):
+        messages.append({
+            "role": "user",
+            "content": (
+                f"The previous SQL failed with: {state['sql_error']}\n"
+                "Please fix it and return only the corrected SQL query."
+            ),
+        })
+
+    response = _client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=messages,
+        max_tokens=500,
+        temperature=0,
+    )
+    sql = _clean_sql(response.choices[0].message.content)
+    logger.info("Generated SQL: %s", sql)
+    return {**state, "generated_sql": sql, "sql_error": None}
