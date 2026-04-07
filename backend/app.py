@@ -8,10 +8,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import pandas as pd
+
 import db
+import insights as insights_module
 from config import CORS_ORIGINS, MAX_CONVERSATION_HISTORY
 from graph import compiled_graph
 from graph.state import ChatState
+
+_ALLOWED_TABLES = {"input_metrics", "orders", "orders_enriched"}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -119,5 +124,103 @@ def chat(request: ChatRequest) -> ChatResponse:
 @app.post("/insights", response_model=InsightsResponse)
 def insights() -> InsightsResponse:
     """Generate and return the automated weekly insights report."""
-    # TODO: implement — load data from db, call generate_report
-    raise NotImplementedError
+    if db._connection is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database not loaded. Place rappi_data.xlsx in data/ and restart.",
+        )
+    conn = db.get_connection()
+    df_metrics = pd.read_sql("SELECT * FROM input_metrics", conn)
+    df_orders = pd.read_sql("SELECT * FROM orders", conn)
+    report = insights_module.generate_report(df_metrics, df_orders)
+    return InsightsResponse(report=report)
+
+
+# ---------------------------------------------------------------------------
+# Debug / inspection endpoints — read-only, for development
+# ---------------------------------------------------------------------------
+
+@app.get("/debug/tables")
+def debug_tables() -> list[dict]:
+    """List all tables and views with their row counts."""
+    conn = db.get_connection()
+    cursor = conn.execute(
+        "SELECT name, type FROM sqlite_master WHERE type IN ('table','view') ORDER BY type, name"
+    )
+    results = []
+    for name, obj_type in cursor.fetchall():
+        try:
+            count = conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+        except Exception:
+            count = None
+        results.append({"name": name, "type": obj_type, "rows": count})
+    return results
+
+
+@app.get("/debug/preview/{table_name}")
+def debug_preview(table_name: str, limit: int = 20) -> list[dict]:
+    """Return the first N rows of a table or view as JSON."""
+    if table_name not in _ALLOWED_TABLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown table '{table_name}'. Allowed: {sorted(_ALLOWED_TABLES)}",
+        )
+    limit = max(1, min(limit, 200))
+    conn = db.get_connection()
+    cursor = conn.execute(f"SELECT * FROM {table_name} LIMIT {limit}")
+    cols = [d[0] for d in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+@app.get("/debug/metrics")
+def debug_metrics() -> list[str]:
+    """Return all distinct METRIC values from input_metrics, sorted."""
+    conn = db.get_connection()
+    cursor = conn.execute("SELECT DISTINCT METRIC FROM input_metrics ORDER BY METRIC")
+    return [row[0] for row in cursor.fetchall()]
+
+
+@app.get("/debug/insights/anomalies")
+def debug_anomalies() -> list[dict]:
+    """Raw output of detect_anomalies — sorted by absolute change."""
+    conn = db.get_connection()
+    df = pd.read_sql("SELECT * FROM input_metrics", conn)
+    result = insights_module.detect_anomalies(df)
+    return result.to_dict(orient="records")
+
+
+@app.get("/debug/insights/trends")
+def debug_trends() -> list[dict]:
+    """Raw output of detect_concerning_trends — sorted by streak length."""
+    conn = db.get_connection()
+    df = pd.read_sql("SELECT * FROM input_metrics", conn)
+    result = insights_module.detect_concerning_trends(df)
+    return result.to_dict(orient="records")
+
+
+@app.get("/debug/insights/benchmarks")
+def debug_benchmarks() -> list[dict]:
+    """Raw output of benchmark_zones — underperformers first (most negative z-score)."""
+    conn = db.get_connection()
+    df = pd.read_sql("SELECT * FROM input_metrics", conn)
+    result = insights_module.benchmark_zones(df)
+    return result.to_dict(orient="records")
+
+
+@app.get("/debug/insights/correlations")
+def debug_correlations() -> list[dict]:
+    """Raw output of compute_correlations — sorted by absolute correlation."""
+    conn = db.get_connection()
+    df = pd.read_sql("SELECT * FROM input_metrics", conn)
+    result = insights_module.compute_correlations(df)
+    return result.to_dict(orient="records")
+
+
+@app.get("/debug/insights/report")
+def debug_report() -> dict:
+    """Raw structured Markdown from generate_report — no LLM, instant response."""
+    conn = db.get_connection()
+    df_metrics = pd.read_sql("SELECT * FROM input_metrics", conn)
+    df_orders = pd.read_sql("SELECT * FROM orders", conn)
+    raw = insights_module.generate_report(df_metrics, df_orders)
+    return {"report": raw}

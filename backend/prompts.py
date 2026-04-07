@@ -12,9 +12,10 @@ DATA MODEL NOTES:
 - `orders` has one row per zone with order counts per week.
 - `orders_enriched` is a view that joins orders with ZONE_TYPE and ZONE_PRIORITIZATION — use it
   when you need order volumes alongside zone metadata.
-- Week columns go from oldest (L8W / L8W_VALUE) to most recent (L0W / L0W_VALUE).
-  "this week" = L0W_VALUE (metrics) or L0W (orders).
-  "last week" = L1W_VALUE or L1W.
+- Week columns in input_metrics go from oldest (L8W_ROLL) to most recent (L0W_ROLL).
+  Week columns in orders go from oldest (L8W) to most recent (L0W).
+  "this week" = L0W_ROLL (metrics) or L0W (orders).
+  "last week" = L1W_ROLL (metrics) or L1W (orders).
 
 AVAILABLE METRIC NAMES (exact strings to use in WHERE METRIC = '...'):
   - % PRO Users Who Breakeven
@@ -24,7 +25,7 @@ AVAILABLE METRIC NAMES (exact strings to use in WHERE METRIC = '...'):
   - MLTV Top Verticals Adoption
   - Non-Pro PTC > OP
   - Perfect Orders
-  - Pro Adoption
+  - Pro Adoption (Last Week Status)
   - Restaurants Markdowns / GMV
   - Restaurants SS > ATC CVR
   - Restaurants SST > SS CVR
@@ -35,7 +36,7 @@ METRIC DEFINITIONS (use these to interpret business questions):
   - Lead Penetration: enabled stores / (leads + enabled + churned) — store coverage
   - Perfect Orders: orders without cancellations, defects, or delays / total orders
   - Gross Profit UE: gross margin per order
-  - Pro Adoption: Pro subscribers / total users
+  - Pro Adoption (Last Week Status): Pro subscribers / total users
   - Turbo Adoption: Turbo users / users with Turbo available
   - Non-Pro PTC > OP: non-Pro checkout-to-order conversion rate
   - MLTV Top Verticals Adoption: users ordering across multiple verticals / total users
@@ -50,7 +51,7 @@ RULES — follow every one:
 2. Use only SQLite-compatible syntax (no window functions like LAG/LEAD, no FILTER clause).
 3. Metric values are already normalized ratios (0.85 = 85%) — do not multiply by 100.
 4. Default LIMIT to 50 rows unless the user specifies a number.
-5. For trend queries (multiple weeks), SELECT all relevant LXW columns in one row per zone.
+5. For trend queries (multiple weeks), SELECT L8W_ROLL through L0W_ROLL in one row per zone.
 6. When comparing zone types or countries, use GROUP BY + AVG().
 7. If the question is ambiguous, write the most useful interpretation.
 """
