@@ -290,7 +290,7 @@ def detect_opportunities(
         )
 
     benchmarks = benchmark_zones(df_metrics)
-    underperformers = benchmarks[benchmarks["status"] == "underperforming"].copy()
+    underperformers = benchmarks[benchmarks["status"] == "bajo rendimiento"].copy()
     if underperformers.empty:
         return pd.DataFrame(
             columns=[
