@@ -1,52 +1,44 @@
-# Rappi Operations Intelligence System
+# Rappi Operations Intelligence
 
-AI-powered conversational analytics for Rappi operations data — ask questions in natural language, get SQL-backed answers and an automated weekly insights report.
+Sistema de analisis conversacional para datos operacionales de Rappi. Permite a equipos no tecnicos hacer preguntas en lenguaje natural y obtener respuestas respaldadas por SQL, ademas de generar automaticamente un reporte semanal de insights.
 
 ---
 
-## Quick Start (from zero)
+## Requisitos previos
 
-### Prerequisites
-
-| Tool | Version | Install |
+| Herramienta | Version minima | Instalacion |
 |---|---|---|
-| Python | 3.11+ | [python.org](https://www.python.org/downloads/) |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
+| Python | 3.11 | [python.org](https://www.python.org/downloads/) |
+| Poetry | 1.8+ | `curl -sSL https://install.python-poetry.org \| python3 -` |
+| Node.js | 18 | [nodejs.org](https://nodejs.org/) |
 | OpenAI API key | — | [platform.openai.com](https://platform.openai.com/) |
 
-### Step 1 — Add the data file
+---
 
-Place the Excel workbook at:
+## Instalacion y ejecucion
 
+### 1. Clonar el repositorio
+
+```bash
+git clone <url-del-repositorio>
+cd rappi-test-1
 ```
-data/rappi_data.xlsx
-```
 
-The file is not committed to the repo. The backend loads it on startup and creates `data/rappi.db` automatically. If you update the Excel file, delete `data/rappi.db` and restart the backend.
-
-### Step 2 — Configure environment variables
+### 2. Configurar variables de entorno
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Open `backend/.env` and set your OpenAI API key:
+Edita `backend/.env` y completa tu API key de OpenAI:
 
 ```
 OPENAI_API_KEY=sk-...
 ```
 
-All other values have sensible defaults and do not need to be changed for local development.
+El resto de variables tienen valores por defecto adecuados para desarrollo local.
 
-### Step 3 — Install and start the backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app:app --reload
-```
-
-**Alternative — with Poetry:**
+### 3. Instalar y arrancar el backend
 
 ```bash
 cd backend
@@ -54,17 +46,23 @@ poetry install
 poetry run uvicorn app:app --reload
 ```
 
-The backend runs at **http://localhost:8000**. On first start you will see a log line like:
+El backend corre en **http://localhost:8000**.
+
+Al iniciar, verifica en los logs que la base de datos se cargo correctamente:
 
 ```
 Database ready — 12573 metric rows, 1242 order rows.
 ```
 
-If you see `Startup data load failed`, check that `data/rappi_data.xlsx` exists.
+Si ves `Startup data load failed`, el archivo Excel no esta en `data/rappi_data.xlsx`.
 
-### Step 4 — Install and start the frontend
+El archivo `data/rappi_data.xlsx` esta incluido en el repositorio. La base de datos SQLite (`data/rappi.db`) no se commitea — el backend la genera automaticamente desde el Excel la primera vez que arranca. No hay ningun paso manual para crearla.
 
-Open a second terminal:
+Si en algun momento eliminas o pierdes `data/rappi.db`, simplemente reinicia el backend y lo regenerara desde el Excel. Si actualizas el Excel, elimina `data/rappi.db` y reinicia el backend para que tome los nuevos datos.
+
+### 4. Instalar y arrancar el frontend
+
+Abre una segunda terminal:
 
 ```bash
 cd frontend
@@ -72,185 +70,174 @@ npm install
 npm run dev
 ```
 
-The frontend runs at **http://localhost:5173**.
+El frontend corre en **http://localhost:5173**.
 
-### Step 5 — Open the app
+### Diferencias por sistema operativo
 
-Go to **http://localhost:5173** in your browser. You will see two tabs:
+En **macOS y Linux** los comandos anteriores funcionan sin modificaciones.
 
-- **Chat** — ask questions in natural language
-- **Insights** — generate the automated weekly report
+En **Windows**, si usas PowerShell o CMD, reemplaza la instalacion de Poetry por:
+
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+```
+
+Y asegurate de que Poetry este en el PATH reiniciando la terminal o agregando manualmente `%APPDATA%\Python\Scripts` a la variable de entorno `Path`.
 
 ---
 
-## Environment Variables Reference
+## Variables de entorno
 
-All variables live in `backend/.env`. Full list with defaults:
+Todas las variables viven en `backend/.env`. Unicamente `OPENAI_API_KEY` es obligatoria.
 
-| Variable | Default | Description |
+| Variable | Valor por defecto | Descripcion |
 |---|---|---|
-| `OPENAI_API_KEY` | *(required)* | Your OpenAI API key |
-| `OPENAI_MODEL` | `gpt-4o` | Model used for SQL generation and responses |
-| `MAX_TOKENS` | `1000` | Max tokens per LLM response |
-| `MAX_RETRIES` | `2` | SQL retry attempts before returning an error |
-| `MAX_CONVERSATION_HISTORY` | `10` | Turns of conversation context sent to the LLM |
-| `ANOMALY_THRESHOLD` | `0.10` | Min week-over-week change to flag as anomaly (10%) |
-| `TREND_MIN_WEEKS` | `3` | Min consecutive declining weeks to flag as trend |
-| `BENCHMARK_STD_THRESHOLD` | `1.0` | Min z-score deviation to flag in benchmarking |
-| `CORRELATION_MIN_ABS` | `0.3` | Min absolute correlation to report |
-| `CORS_ORIGINS` | `http://localhost:5173` | Allowed frontend origins (comma-separated) |
+| `OPENAI_API_KEY` | *(requerida)* | Clave de la API de OpenAI |
+| `OPENAI_MODEL` | `gpt-4o` | Modelo usado para generacion de SQL y respuestas |
+| `MAX_TOKENS` | `1000` | Tokens maximos por respuesta del LLM |
+| `MAX_RETRIES` | `2` | Reintentos de generacion SQL ante errores |
+| `MAX_CONVERSATION_HISTORY` | `10` | Turnos de historial enviados al LLM en cada request |
+| `ANOMALY_THRESHOLD` | `0.10` | Cambio minimo semana a semana para marcar una anomalia (10%) |
+| `TREND_MIN_WEEKS` | `3` | Semanas consecutivas en declive para marcar una tendencia |
+| `BENCHMARK_STD_THRESHOLD` | `1.0` | Desviaciones estandar minimas para marcar en benchmarking |
+| `CORRELATION_MIN_ABS` | `0.3` | Correlacion absoluta minima para reportar |
+| `CORS_ORIGINS` | `http://localhost:5173` | Origenes permitidos del frontend (separados por coma) |
 
 ---
 
-## Project Architecture
+## Arquitectura
 
-### Repository Structure
+### Estructura del repositorio
 
 ```
 /
 ├── backend/
-│   ├── app.py                  # FastAPI entry point — /chat, /insights, /health
+│   ├── app.py                   # FastAPI — endpoints /chat, /insights, /health
 │   ├── graph/
-│   │   ├── __init__.py         # LangGraph graph assembly and compilation
-│   │   ├── state.py            # ChatState TypedDict shared across all nodes
-│   │   ├── intent_classifier.py
-│   │   ├── sql_generator.py
-│   │   ├── sql_executor.py
-│   │   ├── error_handler.py
-│   │   ├── response_formatter.py
-│   │   └── routing.py
-│   ├── insights.py             # Automated insights engine (pure pandas, no LLM)
-│   ├── db.py                   # Excel → SQLite loader + orders_enriched view
-│   ├── prompts.py              # System prompt for SQL generation
-│   ├── config.py               # All configuration from .env
-│   ├── pyproject.toml          # Poetry dependency declaration
-│   ├── requirements.txt        # pip fallback (mirrors pyproject.toml)
-│   └── .env.example            # Environment variable template
+│   │   ├── __init__.py          # Ensamblado y compilacion del grafo LangGraph
+│   │   ├── state.py             # ChatState TypedDict compartido entre nodos
+│   │   ├── intent_classifier.py # Nodo: clasifica la intencion del mensaje
+│   │   ├── sql_generator.py     # Nodo: genera SQL a partir del lenguaje natural
+│   │   ├── sql_executor.py      # Nodo: ejecuta el SQL contra SQLite
+│   │   ├── error_handler.py     # Nodo: maneja errores y controla reintentos
+│   │   ├── response_formatter.py# Nodo: convierte resultados a lenguaje de negocio
+│   │   └── routing.py           # Funciones de enrutamiento condicional
+│   ├── insights.py              # Motor de insights (pandas puro, sin LLM)
+│   ├── db.py                    # Carga Excel a SQLite, crea vista orders_enriched
+│   ├── prompts.py               # System prompt para generacion de SQL
+│   ├── config.py                # Configuracion centralizada desde .env
+│   ├── pyproject.toml           # Dependencias (Poetry)
+│   └── .env.example             # Plantilla de variables de entorno
 ├── frontend/
 │   └── src/
-│       ├── App.jsx             # Root component — tab navigation
-│       ├── api.js              # Fetch client for /chat and /insights
+│       ├── App.jsx              # Componente raiz — navegacion por pestanas
+│       ├── api.js               # Cliente fetch para /chat e /insights
 │       └── components/
-│           ├── Chat.jsx        # Conversational chat UI
-│           └── Insights.jsx    # Weekly report UI
-├── data/                       # ← place rappi_data.xlsx here (not committed)
+│           ├── Chat.jsx         # Interfaz de chat conversacional
+│           └── Insights.jsx     # Interfaz del reporte semanal
+├── data/
+│   └── rappi_data.xlsx          # Datos operacionales (incluido en el repositorio)
 └── README.md
 ```
 
-### Tech Stack
+### Stack tecnologico
 
-| Layer | Technology | Why |
+| Capa | Tecnologia | Razon |
 |---|---|---|
-| Frontend | React 19 + Vite | Fast dev server, minimal bundle |
-| Backend | FastAPI | Async, auto-docs at `/docs`, low boilerplate |
-| LLM orchestration | LangGraph | Explicit graph flow, retry logic without spaghetti |
-| LLM | GPT-4o | Best SQL generation accuracy in practice |
-| Database | SQLite | Zero infra, loads from Excel on startup |
-| Insights engine | pandas | Deterministic, fast, no LLM cost for analytics |
-| Dependency mgmt | Poetry | Reproducible lockfile |
+| Frontend | React 19 + Vite | Servidor de desarrollo rapido, bundle minimo |
+| Backend | FastAPI | Asincrono, documentacion automatica en `/docs`, bajo boilerplate |
+| Orquestacion LLM | LangGraph | Flujo de grafo explicito con logica de reintento sin codigo espagueti |
+| LLM | GPT-4o | Mejor precision en generacion de SQL en la practica |
+| Base de datos | SQLite | Cero infraestructura, se carga desde Excel al arrancar |
+| Motor de insights | pandas | Deterministico, rapido, sin costo de API para el analisis |
+| Gestion de dependencias | Poetry | Lockfile reproducible, entornos aislados |
 
 ---
 
-## Bot — How It Works
+## Bot conversacional
 
-### Conversation Flow (LangGraph)
+### Por que LangGraph
+
+El flujo del bot requiere ramificacion condicional (segun la intencion del usuario), reintento ante errores SQL con contexto del error anterior, y pasos secuenciales con estado compartido. Implementar esto con llamadas directas al LLM produce codigo dificil de mantener. LangGraph modela cada paso como un nodo con responsabilidad unica y define el flujo mediante aristas, lo que hace el comportamiento auditabie y facil de extender.
+
+### Flujo del grafo
 
 ```
-User message
-      │
-      ▼
-intent_classifier          ← GPT-4o, temperature=0, max_tokens=5
-      │
-      ├─ "data_query" ──> sql_generator ──> sql_executor
-      │                         ▲               │
-      │                         │    error      ▼
-      │                    error_handler ◄──────┤  (max 2 retries)
-      │                                         │ success
-      │                                         ▼
-      └─ "general" ──────────────────> response_formatter
-                                                │
-                                                ▼
-                                         answer + data + sql
+Mensaje del usuario
+        |
+        v
+intent_classifier          <- GPT-4o, temperatura=0, max_tokens=5
+        |
+        +-- "data_query" --> sql_generator --> sql_executor
+        |                         ^                 |
+        |                         |    error        v
+        |                    error_handler <--------+  (max 2 reintentos)
+        |                                           | exito
+        |                                           v
+        +-- "general" ------------------------> response_formatter
+                                                    |
+                                                    v
+                                          respuesta + datos + sql
 ```
 
-**intent_classifier** — classifies the message as `data_query` (needs SQL) or `general` (conversational). Uses a single-word forced-choice prompt at temperature 0.
+### Nodos
 
-**sql_generator** — injects the full database schema + metric definitions + business term mappings into the system prompt, then asks GPT-4o to produce a SQLite query. On retry, the previous SQL error is appended so the model can self-correct.
+**`intent_classifier`**
+Clasifica si el mensaje requiere consulta SQL (`data_query`) o es una pregunta conversacional (`general`). Usa un prompt de eleccion forzada de una sola palabra a temperatura 0 para garantizar determinismo.
 
-**sql_executor** — runs the SQL against SQLite, returns JSON-serialised rows or an error string.
+**`sql_generator`**
+Recibe el esquema completo de la base de datos, las definiciones de metricas y los mapeos de terminos de negocio. Genera una consulta SQLite valida. En un reintento, el error anterior se adjunta al mensaje para que el modelo se autocorrija.
 
-**error_handler** — logs the failure and increments `retry_count`. After `MAX_RETRIES`, routing sends the state to the response formatter with a graceful fallback message.
+**`sql_executor`**
+Ejecuta el SQL contra SQLite. Devuelve filas serializadas en JSON o una cadena de error para ser procesada por el `error_handler`.
 
-**response_formatter** — receives the results (or fallback) and produces a 3–6 sentence business-language answer. Always ends with a proactive follow-up suggestion. Responds in the same language as the user.
+**`error_handler`**
+Registra el fallo e incrementa `retry_count`. El enrutamiento condicional en `route_retry` redirige al `sql_generator` si no se alcanzo `MAX_RETRIES`, o al `response_formatter` con un mensaje de fallback si se agoto.
 
-### Conversational Memory
+**`response_formatter`**
+Recibe los resultados (o el fallback) y produce una respuesta en lenguaje de negocio de 3 a 6 oraciones. Siempre incluye una sugerencia de analisis proactivo. Responde en el idioma del usuario.
 
-Each session has a `session_id` (generated server-side on first request, persisted client-side). The server stores the last `MAX_CONVERSATION_HISTORY` turns per session in memory and appends them to every LLM call, enabling multi-turn context.
+### Memoria conversacional
 
-### SQL Generation Rules (key ones)
-
-- Metric values are stored as normalized ratios — `0.85` means 85%. Never multiply by 100 in the query.
-- Metric names must match exactly (e.g. `Perfect Orders`, not `Perfect Order`).
-- Zone/city names use `LOWER(ZONE) LIKE '%name%'` — never exact match.
-- Window functions (`LAG`, `LEAD`, `ROW_NUMBER`, `RANK`) are supported. The `FILTER` clause is not — use `CASE WHEN` instead.
-- For trend questions, all 9 week columns (`L8W_ROLL` → `L0W_ROLL`) are returned in a single row per zone.
-- For inference questions, `orders_enriched` is joined with `input_metrics` to surface both volume and operational metrics together.
-
-### Business Term Mappings
-
-| User says | SQL interprets as |
-|---|---|
-| "zonas problemáticas" / "problem zones" | zones where 3+ metrics are below country average in `L0W_ROLL` |
-| "zonas críticas" | `ZONE_PRIORITIZATION = 'High Priority'` with deteriorating metrics |
-| "zonas de alto rendimiento" | zones where most metrics are above country average |
+Cada sesion tiene un `session_id` generado en el servidor en el primer request y almacenado en el cliente. El servidor mantiene los ultimos `MAX_CONVERSATION_HISTORY` turnos por sesion en memoria y los adjunta a cada llamada al LLM, habilitando contexto multi-turno.
 
 ---
 
-## Insights Engine — How It Works
+## Motor de insights
 
-The insights engine runs entirely in pandas — no LLM, no API cost, deterministic output. It runs 5 analysis functions and assembles a Markdown report.
+Corre enteramente en pandas, sin LLM ni costo de API. Las cinco funciones de analisis producen un reporte Markdown ejecutivo.
 
-### Analysis Functions
+**`detect_anomalies`**
+Cambio semana a semana entre `L1W_ROLL` y `L0W_ROLL`. Marca zona+metrica donde `|cambio| > 10%`. Usa delta absoluto cuando el denominador es cercano a cero para evitar porcentajes sin sentido. Invierte la logica de mejora/deterioro para metricas donde menor es mejor (`Restaurants Markdowns / GMV`).
 
-**`detect_anomalies(df)`**
-Week-over-week change between `L1W_ROLL` and `L0W_ROLL`. Flags any zone+metric where `|change| > ANOMALY_THRESHOLD` (default 10%). Uses absolute delta when the denominator is near zero to avoid meaningless large percentages. Handles "lower is better" metrics (e.g. `Restaurants Markdowns / GMV`) by flipping the improvement/deterioration label.
+**`detect_concerning_trends`**
+Recorre las columnas de semanas hacia atras desde `L0W_ROLL` y cuenta semanas consecutivas en declive. Marca si la racha es mayor o igual a `TREND_MIN_WEEKS`. Estos son problemas estructurales, no fluctuaciones puntuales.
 
-**`detect_concerning_trends(df)`**
-Walks backwards through week columns from `L0W_ROLL`. Counts how many consecutive weeks the metric has been declining. Flags if streak ≥ `TREND_MIN_WEEKS` (default 3). These are structural problems, not one-off fluctuations.
+**`benchmark_zones`**
+Agrupa zonas por `COUNTRY + ZONE_TYPE + METRIC`. Calcula el z-score de cada zona respecto a su grupo de pares. Marca las zonas con `|z| > 1.0` como alto o bajo rendimiento. Requiere minimo 3 zonas en el grupo para ser estadisticamente significativo.
 
-**`benchmark_zones(df)`**
-Groups zones by `COUNTRY + ZONE_TYPE + METRIC`. Computes z-score of each zone vs its peer group. Flags zones with `|z| > BENCHMARK_STD_THRESHOLD` (default 1.0) as outperforming or underperforming. Peer groups need at least 3 zones to be meaningful.
+**`compute_correlations`**
+Pivota `input_metrics` a una matriz zona x metrica usando `L0W_ROLL`. Calcula correlaciones de Pearson entre pares de metricas. Reporta los pares con `|r| > 0.3`.
 
-**`compute_correlations(df)`**
-Pivots `input_metrics` to a zone × metric matrix using `L0W_ROLL`. Drops metrics with >50% null zones. Computes pairwise Pearson correlations. Reports pairs with `|r| > CORRELATION_MIN_ABS` (default 0.3).
+**`detect_opportunities`**
+Cruza zonas con crecimiento fuerte en pedidos (>=10% en 5 semanas) contra zonas con bajo rendimiento vs sus pares en al menos una metrica. Estas zonas tienen demanda llegando pero brechas operacionales que arriesgan el crecimiento.
 
-**`detect_opportunities(df_metrics, df_orders)`**
-Joins zones with strong order growth (≥10% over 5 weeks) against zones that are underperforming vs peers on at least one metric. These zones have demand already arriving but operational gaps that risk the growth.
-
-### Report Structure
+### Estructura del reporte
 
 ```
-## High Priority Zone Watchlist     ← zones flagged in ZONE_PRIORITIZATION
-## Executive Summary                ← 1 finding per analysis type, different countries
-## Recommended Actions              ← top 3 scored by urgency × impact
-## Opportunities                    ← growth zones with metric gaps
-## Anomalies                        ← deteriorations + improvements
-## Concerning Trends                ← structural multi-week declines
-## Benchmarking                     ← underperformers + outperformers vs peers
-## Key Metric Relationships         ← correlated metric pairs
+## Zonas de Alta Prioridad        <- zonas marcadas en ZONE_PRIORITIZATION
+## Resumen Ejecutivo              <- 1 hallazgo por tipo de analisis, paises distintos
+## Acciones Recomendadas          <- top 3 por urgencia x impacto
+## Oportunidades                  <- zonas con crecimiento y brecha operacional
+## Anomalias                      <- deterioros y mejoras significativos
+## Tendencias Preocupantes        <- declives estructurales multi-semana
+## Benchmarking                   <- zonas bajo y alto rendimiento vs pares
+## Relaciones Clave entre Metricas <- pares de metricas correlacionados
 ```
-
-Executive summary findings are deliberately drawn from different countries when possible to avoid all 5 bullets pointing at the same zone.
-
-### Metric Formatting
-
-Metrics are stored as normalized ratios. The engine formats them correctly per type:
-- **Ratio metrics** (most): displayed as `85.3%`
-- **`Gross Profit UE`**: displayed as raw decimal (it's a per-order margin value, not a 0–1 ratio)
 
 ---
 
-## API Reference
+## API
 
 ### `POST /chat`
 
@@ -259,7 +246,7 @@ Request:  { "message": "string", "session_id": "string | null" }
 Response: { "answer": "string", "data": [...], "sql": "string | null", "session_id": "string" }
 ```
 
-`data` contains the raw SQL result rows as a JSON array. `sql` contains the generated query (useful for debugging). If `session_id` is null, a new session is created and returned.
+`data` contiene las filas del resultado SQL como array JSON. `sql` contiene la consulta generada. Si `session_id` es null, se crea una nueva sesion y se devuelve su ID.
 
 ### `POST /insights`
 
@@ -267,70 +254,51 @@ Response: { "answer": "string", "data": [...], "sql": "string | null", "session_
 Response: { "report": "string (Markdown)" }
 ```
 
-Runs all 5 analysis functions and returns the full executive report. No request body needed.
+Ejecuta las 5 funciones de analisis y devuelve el reporte ejecutivo completo.
 
 ### `GET /health`
 
 ```json
-Response: { "status": "ok", "database": "loaded | not loaded" }
+Response: { "status": "ok", "database": "cargada | no cargada" }
 ```
 
-### Debug Endpoints (development only)
+### Endpoints de debug (solo desarrollo)
 
-| Endpoint | Returns |
+| Endpoint | Descripcion |
 |---|---|
-| `GET /debug/tables` | All tables and views with row counts |
-| `GET /debug/preview/{table}` | First N rows of a table (`input_metrics`, `orders`, `orders_enriched`) |
-| `GET /debug/metrics` | All distinct metric names in the database |
-| `GET /debug/insights/anomalies` | Raw anomaly detection output |
-| `GET /debug/insights/trends` | Raw trend detection output |
-| `GET /debug/insights/benchmarks` | Raw benchmarking output |
-| `GET /debug/insights/correlations` | Raw correlation output |
-| `GET /debug/insights/opportunities` | Raw opportunity detection output |
-| `GET /debug/insights/report` | Full Markdown report (same as `/insights`) |
+| `GET /debug/tables` | Tablas y vistas con conteo de filas |
+| `GET /debug/preview/{tabla}` | Primeras N filas de `input_metrics`, `orders` u `orders_enriched` |
+| `GET /debug/metrics` | Nombres de metricas distintos en la base de datos |
+| `GET /debug/insights/anomalies` | Salida cruda de deteccion de anomalias |
+| `GET /debug/insights/trends` | Salida cruda de deteccion de tendencias |
+| `GET /debug/insights/benchmarks` | Salida cruda de benchmarking |
+| `GET /debug/insights/correlations` | Salida cruda de correlaciones |
+| `GET /debug/insights/opportunities` | Salida cruda de oportunidades |
 
-Interactive API docs available at **http://localhost:8000/docs**.
+Documentacion interactiva disponible en **http://localhost:8000/docs**.
 
 ---
 
-## Data Model
+## Estimacion de costos (OpenAI)
 
-### `input_metrics` table (12,573 rows)
+El sistema usa GPT-4o. Los precios de referencia son $2.50 / 1M tokens de entrada y $10.00 / 1M tokens de salida.
 
-One row per `COUNTRY × CITY × ZONE × METRIC`. Week columns go from oldest (`L8W_ROLL`) to most recent (`L0W_ROLL`). Values are normalized ratios — `0.85` means 85%.
+Cada request al chat implica entre 2 y 4 llamadas al LLM segun el flujo:
 
-| Column | Type | Notes |
+| Llamada | Tokens de entrada aprox. | Tokens de salida aprox. |
 |---|---|---|
-| COUNTRY | string | AR, BR, CL, CO, CR, EC, MX, PE, UY |
-| CITY | string | |
-| ZONE | string | Operational zone / neighborhood |
-| ZONE_TYPE | string | `Wealthy` or `Non Wealthy` |
-| ZONE_PRIORITIZATION | string | `High Priority`, `Prioritized`, `Not Prioritized` |
-| METRIC | string | One of 13 metrics — see table below |
-| L8W_ROLL … L0W_ROLL | float | Metric value per week. NULLs allowed in older weeks. |
+| `intent_classifier` | ~500 | ~5 |
+| `sql_generator` | ~2,000 | ~150 |
+| `response_formatter` | ~3,000 | ~200 |
 
-### `orders` table (1,242 rows)
+Un request tipico consume alrededor de **5,500 tokens de entrada y 355 de salida**, lo que equivale a aproximadamente **$0.017 por mensaje** con GPT-4o.
 
-One row per `COUNTRY × CITY × ZONE`. Columns `L8W` → `L0W` hold raw order counts. **Does not have `ZONE_TYPE` or `ZONE_PRIORITIZATION`.**
+El reporte de insights no usa el LLM, tiene costo cero.
 
-### `orders_enriched` view
+| Escenario de uso | Costo estimado |
+|---|---|
+| 10 mensajes/dia, 1 usuario | ~$0.17/dia, ~$5/mes |
+| 50 mensajes/dia, equipo pequeno | ~$0.85/dia, ~$25/mes |
+| 200 mensajes/dia, uso intensivo | ~$3.40/dia, ~$100/mes |
 
-Joins `orders` with `ZONE_TYPE` and `ZONE_PRIORITIZATION` from `input_metrics`. Use this view when you need order volume alongside zone metadata.
-
-### Metric Definitions
-
-| Metric | Description | Direction |
-|---|---|---|
-| `% PRO Users Who Breakeven` | Pro users whose generated value covers membership cost | Higher is better |
-| `% Restaurants Sessions With Optimal Assortment` | Sessions with ≥40 restaurants / total sessions | Higher is better |
-| `Gross Profit UE` | Gross margin per order | Higher is better |
-| `Lead Penetration` | Enabled stores / (leads + enabled + churned) | Higher is better |
-| `MLTV Top Verticals Adoption` | Users ordering across multiple verticals / total users | Higher is better |
-| `Non-Pro PTC > OP` | Non-Pro checkout → order placed conversion | Higher is better |
-| `Perfect Orders` | Orders without cancellations, defects, or delays / total | Higher is better |
-| `Pro Adoption (Last Week Status)` | Pro subscribers / total users | Higher is better |
-| `Restaurants Markdowns / GMV` | Restaurant discounts / restaurant GMV | **Lower is better** |
-| `Restaurants SS > ATC CVR` | Select Store → Add to Cart conversion | Higher is better |
-| `Restaurants SST > SS CVR` | Select restaurant vertical → select store conversion | Higher is better |
-| `Retail SST > SS CVR` | Select supermarket vertical → select store conversion | Higher is better |
-| `Turbo Adoption` | Turbo buyers / users with Turbo available | Higher is better |
+Estos valores asumen requests simples. Preguntas que activan reintentos SQL (hasta 2 intentos adicionales) pueden duplicar el costo por request. Puedes reducir costos ajustando `MAX_TOKENS` y `MAX_CONVERSATION_HISTORY` en el `.env`.
