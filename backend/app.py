@@ -70,7 +70,7 @@ def startup() -> None:
 def health() -> dict:
     """Health check — also reports whether the database is loaded."""
     loaded = db._connection is not None
-    return {"status": "ok", "database": "loaded" if loaded else "not loaded"}
+    return {"status": "ok", "database": "cargada" if loaded else "no cargada"}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -79,7 +79,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     if db._connection is None:
         raise HTTPException(
             status_code=503,
-            detail="Database not loaded. Place rappi_data.xlsx in data/ and restart.",
+            detail="Base de datos no cargada. Coloca rappi_data.xlsx en data/ y reinicia el servidor.",
         )
 
     session_id = request.session_id or str(uuid.uuid4())
@@ -127,7 +127,7 @@ def insights() -> InsightsResponse:
     if db._connection is None:
         raise HTTPException(
             status_code=503,
-            detail="Database not loaded. Place rappi_data.xlsx in data/ and restart.",
+            detail="Base de datos no cargada. Coloca rappi_data.xlsx en data/ y reinicia el servidor.",
         )
     conn = db.get_connection()
     df_metrics = pd.read_sql("SELECT * FROM input_metrics", conn)
@@ -163,7 +163,7 @@ def debug_preview(table_name: str, limit: int = 20) -> list[dict]:
     if table_name not in _ALLOWED_TABLES:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown table '{table_name}'. Allowed: {sorted(_ALLOWED_TABLES)}",
+            detail=f"Tabla desconocida '{table_name}'. Permitidas: {sorted(_ALLOWED_TABLES)}",
         )
     limit = max(1, min(limit, 200))
     conn = db.get_connection()

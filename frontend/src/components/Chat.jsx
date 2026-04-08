@@ -129,7 +129,7 @@ export default function Chat() {
       <div className="chat-messages">
         {messages.length === 0 && (
           <div className="chat-empty">
-            <p className="chat-empty-title">Ask anything about operational metrics</p>
+            <p className="chat-empty-title">Pregunta lo que quieras sobre metricas operacionales</p>
             <div className="chat-suggestions">
               {SUGGESTIONS.map(s => (
                 <button key={s} className="suggestion-btn" onClick={() => handleSuggestion(s)}>
@@ -178,7 +178,7 @@ export default function Chat() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about operational metrics… (Enter to send, Shift+Enter for new line)"
+          placeholder="Pregunta sobre metricas operacionales... (Enter para enviar, Shift+Enter para nueva linea)"
           rows={1}
           disabled={loading}
         />
@@ -187,7 +187,7 @@ export default function Chat() {
           onClick={handleSend}
           disabled={!input.trim() || loading}
         >
-          Send
+          Enviar
         </button>
       </div>
     </div>

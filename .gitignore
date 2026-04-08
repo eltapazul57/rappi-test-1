@@ -1,5 +1,4 @@
 .env
-data/*.xlsx
 data/*.csv
 data/*.db
 data/*.sqlite

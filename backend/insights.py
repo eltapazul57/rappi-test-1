@@ -50,7 +50,7 @@ def detect_anomalies(df: pd.DataFrame, threshold: float = ANOMALY_THRESHOLD) -> 
         improving = row["change_pct"] > 0
         if row["METRIC"] in LOWER_BETTER:
             improving = not improving
-        return "improvement" if improving else "deterioration"
+        return "mejora" if improving else "deterioro"
 
     work["direction"] = work.apply(_direction, axis=1)
 
@@ -155,7 +155,7 @@ def benchmark_zones(df: pd.DataFrame) -> pd.DataFrame:
                     "value": round(row["L0W_ROLL"], 6),
                     "group_mean": round(mean, 6),
                     "z_score": round(z, 3),
-                    "status": "underperforming" if underperforming else "outperforming",
+                    "status": "bajo rendimiento" if underperforming else "alto rendimiento",
                 }
             )
 
@@ -206,8 +206,8 @@ def compute_correlations(df: pd.DataFrame) -> pd.DataFrame:
                     "metric_1": m1,
                     "metric_2": m2,
                     "correlation": round(val, 4),
-                    "type": "positive" if val > 0 else "negative",
-                    "strength": "strong" if abs(val) >= 0.7 else "moderate",
+                    "type": "positiva" if val > 0 else "negativa",
+                    "strength": "fuerte" if abs(val) >= 0.7 else "moderada",
                 }
             )
 
@@ -340,11 +340,11 @@ def detect_opportunities(
     merged["peer_gap_pct"] = (
         (merged["group_mean"] - merged["value"]).abs() / merged["group_mean"].abs().clip(lower=1e-9) * 100
     )
-    merged["opportunity_type"] = "growth_with_metric_gap"
+    merged["opportunity_type"] = "crecimiento_con_brecha_metrica"
     merged["recommendation"] = merged.apply(
         lambda r: (
-            f"Orders are growing {r['orders_growth_pct']:.1f}% in this zone. "
-            f"Prioritize closing the {r['METRIC']} gap vs peers in the next 2 weeks."
+            f"Los pedidos estan creciendo {r['orders_growth_pct']:.1f}% en esta zona. "
+            f"Prioriza cerrar la brecha de {r['METRIC']} vs pares en las proximas 2 semanas."
         ),
         axis=1,
     )
@@ -396,7 +396,7 @@ def _fmt_delta(prev: float, curr: float, metric: str = "") -> str:
         return f"{sign}{delta:.4f}"
     delta = (curr - prev) * 100
     sign = "+" if delta >= 0 else ""
-    return f"{sign}{delta:.1f} percentage points"
+    return f"{sign}{delta:.1f} puntos porcentuales"
 
 
 def _executive_summary(
@@ -419,9 +419,9 @@ def _executive_summary(
         metric = row["METRIC"]
         delta = _fmt_delta(row["prev_value"], row["current_value"], metric)
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: {metric} dropped {delta} week-over-week "
-            f"({_fmt_val(row['prev_value'], metric)} → {_fmt_val(row['current_value'], metric)}). "
-            f"Immediate attention required."
+            f"{row['COUNTRY']} / {row['ZONE']}: {metric} bajo {delta} semana a semana "
+            f"({_fmt_val(row['prev_value'], metric)} -> {_fmt_val(row['current_value'], metric)}). "
+            f"Se requiere atencion inmediata."
         )
 
     if not df_trends.empty:
@@ -431,10 +431,10 @@ def _executive_summary(
         row = (candidates.iloc[0] if not candidates.empty else df_trends.iloc[0])
         metric = row["METRIC"]
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: {metric} has been declining for "
-            f"{int(row['streak_weeks'])} consecutive weeks "
-            f"({_fmt_val(row['start_value'], metric)} → {_fmt_val(row['current_value'], metric)}). "
-            f"Structural issue — will not self-correct without intervention."
+            f"{row['COUNTRY']} / {row['ZONE']}: {metric} lleva "
+            f"{int(row['streak_weeks'])} semanas consecutivas en declive "
+            f"({_fmt_val(row['start_value'], metric)} -> {_fmt_val(row['current_value'], metric)}). "
+            f"Problema estructural: no se corregira solo sin intervencion."
         )
 
     if not df_opportunities.empty:
@@ -443,9 +443,9 @@ def _executive_summary(
         row = (candidates.iloc[0] if not candidates.empty else df_opportunities.iloc[0])
         metric = row["METRIC"]
         points.append(
-            f"{row['COUNTRY']} / {row['ZONE']}: demand is up {row['orders_growth_pct']:.0f}% over 5 weeks "
-            f"but {metric} is {row['peer_gap_pct']:.0f} points below similar zones. "
-            f"Growth is at risk if operations do not catch up."
+            f"{row['COUNTRY']} / {row['ZONE']}: la demanda subio {row['orders_growth_pct']:.0f}% en 5 semanas "
+            f"pero {metric} esta {row['peer_gap_pct']:.0f} puntos por debajo de zonas similares. "
+            f"El crecimiento esta en riesgo si las operaciones no se ponen al dia."
         )
 
     if not df_benchmarks.empty:
@@ -456,17 +456,17 @@ def _executive_summary(
             row = (candidates.iloc[0] if not candidates.empty else under.iloc[0])
             metric = row["METRIC"]
             points.append(
-                f"{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}): {metric} at "
-                f"{_fmt_val(row['value'], metric)}, vs {_fmt_val(row['group_mean'], metric)} peer average. "
-                f"Significant gap vs similar zones in the same country."
+                f"{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}): {metric} en "
+                f"{_fmt_val(row['value'], metric)}, frente a un promedio de pares de {_fmt_val(row['group_mean'], metric)}. "
+                f"Brecha significativa respecto a zonas similares del mismo pais."
             )
 
     if not df_correlations.empty:
         row = df_correlations.iloc[0]
         points.append(
-            f"Zones with higher {row['metric_1']} also tend to have higher {row['metric_2']} "
+            f"Las zonas con mayor {row['metric_1']} tambien tienden a tener mayor {row['metric_2']} "
             f"(r={row['correlation']:.2f}). "
-            f"Improving one is likely to drive the other — consider joint interventions."
+            f"Mejorar una probablemente impulse la otra: considera intervenciones conjuntas."
         )
 
     return points[:5]
@@ -488,8 +488,8 @@ def _prioritized_actions(
         score = 100 + float(row["streak_weeks"]) * 10
         scored.append((
             score,
-            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** {int(row['streak_weeks'])} weeks of consecutive decline. "
-            f"Assign an owner and define a recovery target for next week.",
+            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** {int(row['streak_weeks'])} semanas de declive consecutivo. "
+            f"Asigna un responsable y define un objetivo de recuperacion para la semana siguiente.",
         ))
 
     if not df_anomalies.empty:
@@ -500,8 +500,8 @@ def _prioritized_actions(
         scored.append((
             score,
             f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** "
-            f"dropped {_fmt_delta(row['prev_value'], row['current_value'], metric)} this week. "
-            f"Investigate root cause within 48 hours and define containment actions.",
+            f"bajo {_fmt_delta(row['prev_value'], row['current_value'], metric)} esta semana. "
+            f"Investiga la causa raiz en menos de 48 horas y define acciones de contencion.",
         ))
 
     if not df_opportunities.empty:
@@ -510,9 +510,9 @@ def _prioritized_actions(
         score = 85 + float(row["orders_growth_pct"]) + abs(float(row["z_score"])) * 10
         scored.append((
             score,
-            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** orders up {row['orders_growth_pct']:.0f}% "
-            f"but metric is {row['peer_gap_pct']:.0f} points below peers. "
-            f"Close the gap before demand stabilizes.",
+            f"**{row['COUNTRY']} / {row['ZONE']} — {metric}:** pedidos subieron {row['orders_growth_pct']:.0f}% "
+            f"pero la metrica esta {row['peer_gap_pct']:.0f} puntos por debajo de los pares. "
+            f"Cierra la brecha antes de que la demanda se estabilice.",
         ))
 
     if not df_benchmarks.empty:
@@ -524,8 +524,8 @@ def _prioritized_actions(
             scored.append((
                 score,
                 f"**{row['COUNTRY']} / {row['ZONE']} ({row['ZONE_TYPE']}) — {metric}:** "
-                f"at {_fmt_val(row['value'], metric)}, well below the {_fmt_val(row['group_mean'], metric)} peer average. "
-                f"Review operations against top-performing zones in the same segment.",
+                f"en {_fmt_val(row['value'], metric)}, muy por debajo del promedio de pares {_fmt_val(row['group_mean'], metric)}. "
+                f"Revisa las operaciones frente a las zonas de mejor desempeno en el mismo segmento.",
             ))
 
     if not df_correlations.empty:
@@ -533,13 +533,13 @@ def _prioritized_actions(
         score = 60 + abs(float(row["correlation"])) * 20
         scored.append((
             score,
-            f"**Leverage point — {row['metric_1']} and {row['metric_2']}:** "
-            f"these two metrics move together (r={row['correlation']:.2f}). "
-            f"Interventions targeting {row['metric_1']} are likely to improve {row['metric_2']} as well.",
+            f"**Punto de apalancamiento — {row['metric_1']} y {row['metric_2']}:** "
+            f"estas dos metricas se mueven juntas (r={row['correlation']:.2f}). "
+            f"Las intervenciones sobre {row['metric_1']} probablemente mejoren tambien {row['metric_2']}.",
         ))
 
     if not scored:
-        return ["No high-priority actions identified due to limited valid signals in the current cut."]
+        return ["No se identificaron acciones de alta prioridad debido a senales validas limitadas en el corte actual."]
 
     scored.sort(key=lambda x: x[0], reverse=True)
     seen: set[str] = set()
@@ -588,18 +588,18 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     TOP_N = 5
     lines: list[str] = []
 
-    # --- High Priority Zone Watchlist ---
+    # --- Zonas de Alta Prioridad ---
     if high_priority_zones:
-        lines.append("## High Priority Zone Watchlist")
+        lines.append("## Zonas de Alta Prioridad")
         lines.append(
-            "The following zones are flagged as **High Priority** in the operational plan. "
-            "All findings below should be reviewed with these zones in mind first."
+            "Las siguientes zonas estan marcadas como **Alta Prioridad** en el plan operacional. "
+            "Todos los hallazgos a continuacion deben revisarse teniendo estas zonas en mente primero."
         )
         for zone_label in high_priority_zones[:10]:
             lines.append(f"- {zone_label}")
 
-    # --- Executive Summary ---
-    lines.append("\n## Executive Summary" if high_priority_zones else "## Executive Summary")
+    # --- Resumen Ejecutivo ---
+    lines.append("\n## Resumen Ejecutivo" if high_priority_zones else "## Resumen Ejecutivo")
     for point in _executive_summary(
         df_anomalies=df_anomalies,
         df_trends=df_trends,
@@ -609,8 +609,8 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     ):
         lines.append(f"- {point}")
 
-    # --- Recommended Actions (top of report, after summary) ---
-    lines.append("\n## Recommended Actions")
+    # --- Acciones Recomendadas ---
+    lines.append("\n## Acciones Recomendadas")
     actions = _prioritized_actions(
         df_anomalies=df_anomalies,
         df_trends=df_trends,
@@ -621,120 +621,120 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     for idx, action in enumerate(actions, start=1):
         lines.append(f"{idx}. {action}")
 
-    # --- Opportunities ---
-    lines.append("\n## Opportunities")
+    # --- Oportunidades ---
+    lines.append("\n## Oportunidades")
     lines.append(
-        "These zones are growing in order volume but have an operational gap vs similar zones in the same country. "
-        "They represent the highest-ROI targets: demand is already there, execution needs to catch up."
+        "Estas zonas estan creciendo en volumen de pedidos pero tienen una brecha operacional frente a zonas similares en el mismo pais. "
+        "Representan los objetivos de mayor ROI: la demanda ya existe, la ejecucion debe ponerse al dia."
     )
     if df_opportunities.empty:
-        lines.append("\nNo high-confidence opportunities found this week.")
+        lines.append("\nNo se encontraron oportunidades de alta confianza esta semana.")
     else:
         for _, r in df_opportunities.head(TOP_N).iterrows():
             metric = r["METRIC"]
             lines.append(f"\n**{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']})")
             lines.append(
-                f"- Metric lagging: **{metric}** — currently {_fmt_val(r['value'], metric)}, "
-                f"peers average {_fmt_val(r['group_mean'], metric)} (gap: {r['peer_gap_pct']:.0f} points below)"
+                f"- Metrica rezagada: **{metric}** — actualmente {_fmt_val(r['value'], metric)}, "
+                f"promedio de pares {_fmt_val(r['group_mean'], metric)} (brecha: {r['peer_gap_pct']:.0f} puntos por debajo)"
             )
             lines.append(
-                f"- Order growth: {r['orders_prev_5w']:.0f} orders 5 weeks ago → {r['orders_current']:.0f} today "
+                f"- Crecimiento de pedidos: {r['orders_prev_5w']:.0f} pedidos hace 5 semanas -> {r['orders_current']:.0f} hoy "
                 f"({r['orders_growth_pct']:+.0f}%)"
             )
             lines.append(
-                f"- Action: Address {metric} in this zone within the next 2 weeks to avoid losing the demand spike."
+                f"- Accion: Abordar {metric} en esta zona en las proximas 2 semanas para evitar perder el pico de demanda."
             )
 
-    # --- Anomalies ---
-    lines.append("\n## Anomalies")
+    # --- Anomalias ---
+    lines.append("\n## Anomalias")
     lines.append(
-        "Zones where a metric changed significantly compared to last week (more than 10%). "
-        "Deteriorations need an owner assigned immediately. Improvements should be documented and replicated."
+        "Zonas donde una metrica cambio significativamente respecto a la semana anterior (mas del 10%). "
+        "Los deterioros necesitan un responsable asignado de inmediato. Las mejoras deben documentarse y replicarse."
     )
     if df_anomalies.empty:
-        lines.append("\nNo anomalies detected.")
+        lines.append("\nNo se detectaron anomalias.")
     else:
-        det = df_anomalies[df_anomalies["direction"] == "deterioration"].head(TOP_N)
-        imp = df_anomalies[df_anomalies["direction"] == "improvement"].head(2)
+        det = df_anomalies[df_anomalies["direction"] == "deterioro"].head(TOP_N)
+        imp = df_anomalies[df_anomalies["direction"] == "mejora"].head(2)
         if not det.empty:
-            lines.append("\n**Deteriorations — assign an owner this week**")
+            lines.append("\n**Deterioros — asigna un responsable esta semana**")
             for _, r in det.iterrows():
                 metric = r["METRIC"]
                 lines.append(
                     f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
-                    f"{_fmt_val(r['prev_value'], metric)} → {_fmt_val(r['current_value'], metric)} "
+                    f"{_fmt_val(r['prev_value'], metric)} -> {_fmt_val(r['current_value'], metric)} "
                     f"({_fmt_delta(r['prev_value'], r['current_value'], metric)})"
                 )
         if not imp.empty:
-            lines.append("\n**Improvements — replicate the playbook**")
+            lines.append("\n**Mejoras — replica el playbook**")
             for _, r in imp.iterrows():
                 metric = r["METRIC"]
                 lines.append(
                     f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
-                    f"{_fmt_val(r['prev_value'], metric)} → {_fmt_val(r['current_value'], metric)} "
+                    f"{_fmt_val(r['prev_value'], metric)} -> {_fmt_val(r['current_value'], metric)} "
                     f"({_fmt_delta(r['prev_value'], r['current_value'], metric)})"
                 )
 
-    # --- Concerning Trends ---
-    lines.append("\n## Concerning Trends")
+    # --- Tendencias Preocupantes ---
+    lines.append("\n## Tendencias Preocupantes")
     lines.append(
-        "Metrics that have been declining every single week for 3 or more consecutive weeks. "
-        "Unlike anomalies, these are not one-off events — they signal a structural problem that will not self-correct."
+        "Metricas que han caido cada semana durante 3 o mas semanas consecutivas. "
+        "A diferencia de las anomalias, no son eventos puntuales: senalan un problema estructural que no se corregira solo."
     )
     if df_trends.empty:
-        lines.append("\nNo concerning trends detected.")
+        lines.append("\nNo se detectaron tendencias preocupantes.")
     else:
         for _, r in df_trends.head(TOP_N).iterrows():
             metric = r["METRIC"]
             lines.append(
                 f"- **{r['COUNTRY']} / {r['ZONE']}** — {metric}: "
-                f"declining for {int(r['streak_weeks'])} weeks in a row "
-                f"({_fmt_val(r['start_value'], metric)} → {_fmt_val(r['current_value'], metric)}). "
-                f"Trigger a recovery sprint with weekly check-ins."
+                f"en declive durante {int(r['streak_weeks'])} semanas consecutivas "
+                f"({_fmt_val(r['start_value'], metric)} -> {_fmt_val(r['current_value'], metric)}). "
+                f"Activa un sprint de recuperacion con revisiones semanales."
             )
 
     # --- Benchmarking ---
     lines.append("\n## Benchmarking")
     lines.append(
-        "Zones compared against others in the same country and zone type (Wealthy / Non Wealthy). "
-        "Underperformers have a statistically significant gap — not just slightly below average."
+        "Zonas comparadas con otras del mismo pais y tipo de zona (Wealthy / Non Wealthy). "
+        "Las zonas con bajo rendimiento tienen una brecha estadisticamente significativa, no solo ligeramente por debajo del promedio."
     )
     if df_benchmarks.empty:
-        lines.append("\nNo significant outliers detected.")
+        lines.append("\nNo se detectaron valores atipicos significativos.")
     else:
-        under = df_benchmarks[df_benchmarks["status"] == "underperforming"].head(TOP_N)
-        over = df_benchmarks[df_benchmarks["status"] == "outperforming"].head(2)
+        under = df_benchmarks[df_benchmarks["status"] == "bajo rendimiento"].head(TOP_N)
+        over = df_benchmarks[df_benchmarks["status"] == "alto rendimiento"].head(2)
         if not under.empty:
-            lines.append("\n**Underperforming zones** (review operations vs top peers)")
+            lines.append("\n**Zonas con bajo rendimiento** (revisa las operaciones frente a los mejores pares)")
             for _, r in under.iterrows():
                 metric = r["METRIC"]
                 lines.append(
                     f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {metric}: "
-                    f"{_fmt_val(r['value'], metric)} vs {_fmt_val(r['group_mean'], metric)} peer average"
+                    f"{_fmt_val(r['value'], metric)} vs promedio de pares {_fmt_val(r['group_mean'], metric)}"
                 )
         if not over.empty:
-            lines.append("\n**Outperforming zones** (use these as benchmarks for the rest)")
+            lines.append("\n**Zonas con alto rendimiento** (usarlas como referencia para el resto)")
             for _, r in over.iterrows():
                 metric = r["METRIC"]
                 lines.append(
                     f"- **{r['COUNTRY']} / {r['ZONE']}** ({r['ZONE_TYPE']}) — {metric}: "
-                    f"{_fmt_val(r['value'], metric)} vs {_fmt_val(r['group_mean'], metric)} peer average"
+                    f"{_fmt_val(r['value'], metric)} vs promedio de pares {_fmt_val(r['group_mean'], metric)}"
                 )
 
-    # --- Correlations ---
-    lines.append("\n## Key Metric Relationships")
+    # --- Correlaciones ---
+    lines.append("\n## Relaciones Clave entre Metricas")
     lines.append(
-        "Pairs of metrics that tend to move together across zones. "
-        "When one is low, the other tends to be low too. These are leverage points: fixing one is likely to improve the other."
+        "Pares de metricas que tienden a moverse juntas entre zonas. "
+        "Cuando una es baja, la otra tambien tiende a serlo. Son puntos de apalancamiento: mejorar una probablemente mejore la otra."
     )
     if df_correlations.empty:
-        lines.append("\nNo significant correlations found.")
+        lines.append("\nNo se encontraron correlaciones significativas.")
     else:
         for _, r in df_correlations.head(TOP_N).iterrows():
-            direction_note = "tend to move together" if r["type"] == "positive" else "tend to move in opposite directions"
+            direction_note = "tienden a moverse juntas" if r["type"] == "positiva" else "tienden a moverse en sentidos opuestos"
             lines.append(
-                f"- **{r['metric_1']}** and **{r['metric_2']}** {direction_note} (r={r['correlation']:.2f}). "
-                f"Zones that improve one typically see gains in the other as well."
+                f"- **{r['metric_1']}** y **{r['metric_2']}** {direction_note} (r={r['correlation']:.2f}). "
+                f"Las zonas que mejoran una suelen ver ganancias en la otra tambien."
             )
 
     return "\n".join(lines)

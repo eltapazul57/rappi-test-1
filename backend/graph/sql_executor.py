@@ -14,7 +14,7 @@ def sql_executor(state: ChatState) -> ChatState:
     """Execute generated_sql against SQLite. Populate sql_result or sql_error."""
     sql = state.get("generated_sql", "")
     if not sql:
-        return {**state, "sql_error": "No SQL was generated."}
+        return {**state, "sql_error": "No se genero ninguna consulta SQL."}
 
     try:
         conn = db.get_connection()

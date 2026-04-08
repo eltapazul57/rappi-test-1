@@ -19,7 +19,7 @@ ORDERS_SHEET = "RAW_ORDERS"
 def get_connection() -> sqlite3.Connection:
     """Return the singleton SQLite connection. Raises RuntimeError if not initialized."""
     if _connection is None:
-        raise RuntimeError("Database not initialized. The server failed to load data on startup.")
+        raise RuntimeError("Base de datos no inicializada. El servidor no pudo cargar los datos al iniciar.")
     return _connection
 
 
@@ -32,21 +32,21 @@ def load_data(
 
     if not excel_path.exists():
         raise FileNotFoundError(
-            f"Workbook not found at {excel_path}. "
-            "Place rappi_data.xlsx in the data/ folder."
+            f"Archivo no encontrado en {excel_path}. "
+            "Coloca rappi_data.xlsx en la carpeta data/."
         )
 
     logger.info("Loading workbook %s ...", excel_path.name)
     workbook = pd.ExcelFile(excel_path)
     if METRICS_SHEET not in workbook.sheet_names:
         raise ValueError(
-            f"Sheet {METRICS_SHEET!r} not found in {excel_path.name}. "
-            f"Available sheets: {workbook.sheet_names}"
+            f"Hoja {METRICS_SHEET!r} no encontrada en {excel_path.name}. "
+            f"Hojas disponibles: {workbook.sheet_names}"
         )
     if ORDERS_SHEET not in workbook.sheet_names:
         raise ValueError(
-            f"Sheet {ORDERS_SHEET!r} not found in {excel_path.name}. "
-            f"Available sheets: {workbook.sheet_names}"
+            f"Hoja {ORDERS_SHEET!r} no encontrada en {excel_path.name}. "
+            f"Hojas disponibles: {workbook.sheet_names}"
         )
 
     df_metrics = pd.read_excel(workbook, sheet_name=METRICS_SHEET).dropna(how="all")

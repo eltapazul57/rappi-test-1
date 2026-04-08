@@ -24,11 +24,11 @@ export default function Insights() {
     <div className="insights">
       <div className="insights-header">
         <div>
-          <h2>Weekly Insights Report</h2>
-          <p>Automated analysis of anomalies, trends, benchmarks, and correlations across all zones.</p>
+          <h2>Informe semanal de insights</h2>
+          <p>Analisis automatico de anomalias, tendencias, benchmarks y correlaciones en todas las zonas.</p>
         </div>
         <button className="insights-btn" onClick={handleGenerate} disabled={loading}>
-          {loading ? 'Generating…' : report ? 'Regenerate' : 'Generate Report'}
+          {loading ? 'Generando...' : report ? 'Regenerar' : 'Generar informe'}
         </button>
       </div>
 
@@ -36,12 +36,12 @@ export default function Insights() {
 
       {!report && !loading && (
         <div className="insights-empty">
-          <p>Click "Generate Report" to run the automated analysis.</p>
+          <p>Haz clic en "Generar informe" para ejecutar el analisis automatico.</p>
           <ul>
-            <li>Zones with &gt;10% week-over-week change</li>
-            <li>Metrics declining 3+ consecutive weeks</li>
-            <li>Zones underperforming vs their peer group</li>
-            <li>Correlations between metrics</li>
+            <li>Zonas con mas del 10% de cambio semana a semana</li>
+            <li>Metricas en declive durante 3 o mas semanas consecutivas</li>
+            <li>Zonas con bajo rendimiento respecto a su grupo de referencia</li>
+            <li>Correlaciones entre metricas</li>
           </ul>
         </div>
       )}

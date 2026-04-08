@@ -20,7 +20,7 @@ export default function App() {
             className={`nav-btn${tab === 'insights' ? ' active' : ''}`}
             onClick={() => setTab('insights')}
           >
-            Insights
+            Informes
           </button>
         </nav>
       </header>
