@@ -6,12 +6,12 @@ Sistema de analisis conversacional para datos operacionales de Rappi. Permite a 
 
 ## Requisitos previos
 
-| Herramienta | Version minima | Instalacion |
-|---|---|---|
-| Python | 3.11 | [python.org](https://www.python.org/downloads/) |
-| Poetry | 1.8+ | `curl -sSL https://install.python-poetry.org \| python3 -` |
-| Node.js | 18 | [nodejs.org](https://nodejs.org/) |
-| OpenAI API key | — | [platform.openai.com](https://platform.openai.com/) |
+| Herramienta    | Version minima | Instalacion                                                 |
+| -------------- | -------------- | ----------------------------------------------------------- |
+| Python         | 3.11           | [python.org](https://www.python.org/downloads/)                |
+| Poetry         | 1.8+           | `curl -sSL https://install.python-poetry.org \| python3 -` |
+| Node.js        | 18             | [nodejs.org](https://nodejs.org/)                              |
+| OpenAI API key | —             | [platform.openai.com](https://platform.openai.com/)            |
 
 ---
 
@@ -82,7 +82,7 @@ En **Windows**, si usas PowerShell o CMD, reemplaza la instalacion de Poetry por
 (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
 ```
 
-Y asegurate de que Poetry este en el PATH reiniciando la terminal o agregando manualmente `%APPDATA%\Python\Scripts` a la variable de entorno `Path`.
+Si Poetry no se reconoce como comando, es necesario reiniciar la terminal o agregar `%APPDATA%\Python\Scripts` al PATH manualmente.
 
 ---
 
@@ -90,18 +90,18 @@ Y asegurate de que Poetry este en el PATH reiniciando la terminal o agregando ma
 
 Todas las variables viven en `backend/.env`. Unicamente `OPENAI_API_KEY` es obligatoria.
 
-| Variable | Valor por defecto | Descripcion |
-|---|---|---|
-| `OPENAI_API_KEY` | *(requerida)* | Clave de la API de OpenAI |
-| `OPENAI_MODEL` | `gpt-4o` | Modelo usado para generacion de SQL y respuestas |
-| `MAX_TOKENS` | `1000` | Tokens maximos por respuesta del LLM |
-| `MAX_RETRIES` | `2` | Reintentos de generacion SQL ante errores |
-| `MAX_CONVERSATION_HISTORY` | `10` | Turnos de historial enviados al LLM en cada request |
-| `ANOMALY_THRESHOLD` | `0.10` | Cambio minimo semana a semana para marcar una anomalia (10%) |
-| `TREND_MIN_WEEKS` | `3` | Semanas consecutivas en declive para marcar una tendencia |
-| `BENCHMARK_STD_THRESHOLD` | `1.0` | Desviaciones estandar minimas para marcar en benchmarking |
-| `CORRELATION_MIN_ABS` | `0.3` | Correlacion absoluta minima para reportar |
-| `CORS_ORIGINS` | `http://localhost:5173` | Origenes permitidos del frontend (separados por coma) |
+| Variable                     | Valor por defecto         | Descripcion                                                  |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------ |
+| `OPENAI_API_KEY`           | *(requerida)*           | Clave de la API de OpenAI                                    |
+| `OPENAI_MODEL`             | `gpt-4o`                | Modelo usado para generacion de SQL y respuestas             |
+| `MAX_TOKENS`               | `1000`                  | Tokens maximos por respuesta del LLM                         |
+| `MAX_RETRIES`              | `2`                     | Reintentos de generacion SQL ante errores                    |
+| `MAX_CONVERSATION_HISTORY` | `10`                    | Turnos de historial enviados al LLM en cada request          |
+| `ANOMALY_THRESHOLD`        | `0.10`                  | Cambio minimo semana a semana para marcar una anomalia (10%) |
+| `TREND_MIN_WEEKS`          | `3`                     | Semanas consecutivas en declive para marcar una tendencia    |
+| `BENCHMARK_STD_THRESHOLD`  | `1.0`                   | Desviaciones estandar minimas para marcar en benchmarking    |
+| `CORRELATION_MIN_ABS`      | `0.3`                   | Correlacion absoluta minima para reportar                    |
+| `CORS_ORIGINS`             | `http://localhost:5173` | Origenes permitidos del frontend (separados por coma)        |
 
 ---
 
@@ -142,15 +142,15 @@ Todas las variables viven en `backend/.env`. Unicamente `OPENAI_API_KEY` es obli
 
 ### Stack tecnologico
 
-| Capa | Tecnologia | Razon |
-|---|---|---|
-| Frontend | React 19 + Vite | Servidor de desarrollo rapido, bundle minimo |
-| Backend | FastAPI | Asincrono, documentacion automatica en `/docs`, bajo boilerplate |
-| Orquestacion LLM | LangGraph | Flujo de grafo explicito con logica de reintento sin codigo espagueti |
-| LLM | GPT-4o | Mejor precision en generacion de SQL en la practica |
-| Base de datos | SQLite | Cero infraestructura, se carga desde Excel al arrancar |
-| Motor de insights | pandas | Deterministico, rapido, sin costo de API para el analisis |
-| Gestion de dependencias | Poetry | Lockfile reproducible, entornos aislados |
+| Capa                    | Tecnologia      | Razon                                                                 |
+| ----------------------- | --------------- | --------------------------------------------------------------------- |
+| Frontend                | React 19 + Vite | Servidor de desarrollo rapido, bundle minimo                          |
+| Backend                 | FastAPI         | Asincrono, documentacion automatica en `/docs`, bajo boilerplate    |
+| Orquestacion LLM        | LangGraph       | Flujo de grafo explicito con logica de reintento sin codigo espagueti |
+| LLM                     | GPT-4o          | Mejor precision en generacion de SQL en la practica                   |
+| Base de datos           | SQLite          | Cero infraestructura, se carga desde Excel al arrancar                |
+| Motor de insights       | pandas          | Deterministico, rapido, sin costo de API para el analisis             |
+| Gestion de dependencias | Poetry          | Lockfile reproducible, entornos aislados                              |
 
 ---
 
@@ -264,16 +264,16 @@ Response: { "status": "ok", "database": "cargada | no cargada" }
 
 ### Endpoints de debug (solo desarrollo)
 
-| Endpoint | Descripcion |
-|---|---|
-| `GET /debug/tables` | Tablas y vistas con conteo de filas |
-| `GET /debug/preview/{tabla}` | Primeras N filas de `input_metrics`, `orders` u `orders_enriched` |
-| `GET /debug/metrics` | Nombres de metricas distintos en la base de datos |
-| `GET /debug/insights/anomalies` | Salida cruda de deteccion de anomalias |
-| `GET /debug/insights/trends` | Salida cruda de deteccion de tendencias |
-| `GET /debug/insights/benchmarks` | Salida cruda de benchmarking |
-| `GET /debug/insights/correlations` | Salida cruda de correlaciones |
-| `GET /debug/insights/opportunities` | Salida cruda de oportunidades |
+| Endpoint                              | Descripcion                                                             |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /debug/tables`                 | Tablas y vistas con conteo de filas                                     |
+| `GET /debug/preview/{tabla}`        | Primeras N filas de `input_metrics`, `orders` u `orders_enriched` |
+| `GET /debug/metrics`                | Nombres de metricas distintos en la base de datos                       |
+| `GET /debug/insights/anomalies`     | Salida cruda de deteccion de anomalias                                  |
+| `GET /debug/insights/trends`        | Salida cruda de deteccion de tendencias                                 |
+| `GET /debug/insights/benchmarks`    | Salida cruda de benchmarking                                            |
+| `GET /debug/insights/correlations`  | Salida cruda de correlaciones                                           |
+| `GET /debug/insights/opportunities` | Salida cruda de oportunidades                                           |
 
 Documentacion interactiva disponible en **http://localhost:8000/docs**.
 
@@ -285,20 +285,20 @@ El sistema usa GPT-4o. Los precios de referencia son $2.50 / 1M tokens de entrad
 
 Cada request al chat implica entre 2 y 4 llamadas al LLM segun el flujo:
 
-| Llamada | Tokens de entrada aprox. | Tokens de salida aprox. |
-|---|---|---|
-| `intent_classifier` | ~500 | ~5 |
-| `sql_generator` | ~2,000 | ~150 |
-| `response_formatter` | ~3,000 | ~200 |
+| Llamada                | Tokens de entrada aprox. | Tokens de salida aprox. |
+| ---------------------- | ------------------------ | ----------------------- |
+| `intent_classifier`  | ~500                     | ~5                      |
+| `sql_generator`      | ~2,000                   | ~150                    |
+| `response_formatter` | ~3,000                   | ~200                    |
 
 Un request tipico consume alrededor de **5,500 tokens de entrada y 355 de salida**, lo que equivale a aproximadamente **$0.017 por mensaje** con GPT-4o.
 
 El reporte de insights no usa el LLM, tiene costo cero.
 
-| Escenario de uso | Costo estimado |
-|---|---|
-| 10 mensajes/dia, 1 usuario | ~$0.17/dia, ~$5/mes |
-| 50 mensajes/dia, equipo pequeno | ~$0.85/dia, ~$25/mes |
+| Escenario de uso                | Costo estimado        |
+| ------------------------------- | --------------------- |
+| 10 mensajes/dia, 1 usuario      | ~$0.17/dia, ~$5/mes   |
+| 50 mensajes/dia, equipo pequeno | ~$0.85/dia, ~$25/mes  |
 | 200 mensajes/dia, uso intensivo | ~$3.40/dia, ~$100/mes |
 
 Estos valores asumen requests simples. Preguntas que activan reintentos SQL (hasta 2 intentos adicionales) pueden duplicar el costo por request. Puedes reducir costos ajustando `MAX_TOKENS` y `MAX_CONVERSATION_HISTORY` en el `.env`.
