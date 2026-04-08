@@ -414,7 +414,7 @@ def _executive_summary(
     points: list[str] = []
 
     if not df_anomalies.empty:
-        det = df_anomalies[df_anomalies["direction"] == "deterioration"]
+        det = df_anomalies[df_anomalies["direction"] == "deterioro"]
         row = (det.head(1) if not det.empty else df_anomalies.head(1)).iloc[0]
         metric = row["METRIC"]
         delta = _fmt_delta(row["prev_value"], row["current_value"], metric)
@@ -449,7 +449,7 @@ def _executive_summary(
         )
 
     if not df_benchmarks.empty:
-        under = df_benchmarks[df_benchmarks["status"] == "underperforming"]
+        under = df_benchmarks[df_benchmarks["status"] == "bajo rendimiento"]
         if not under.empty:
             seen_countries = {p.split(" / ")[0] for p in points}
             candidates = under[~under["COUNTRY"].isin(seen_countries)]
@@ -493,7 +493,7 @@ def _prioritized_actions(
         ))
 
     if not df_anomalies.empty:
-        det = df_anomalies[df_anomalies["direction"] == "deterioration"]
+        det = df_anomalies[df_anomalies["direction"] == "deterioro"]
         row = (det.head(1) if not det.empty else df_anomalies.head(1)).iloc[0]
         metric = row["METRIC"]
         score = 90 + abs(float(row["change_pct"]))
@@ -516,7 +516,7 @@ def _prioritized_actions(
         ))
 
     if not df_benchmarks.empty:
-        under = df_benchmarks[df_benchmarks["status"] == "underperforming"]
+        under = df_benchmarks[df_benchmarks["status"] == "bajo rendimiento"]
         if not under.empty:
             row = under.iloc[0]
             metric = row["METRIC"]
