@@ -128,6 +128,12 @@ def detect_concerning_trends(df: pd.DataFrame, min_weeks: int = TREND_MIN_WEEKS)
 def benchmark_zones(df: pd.DataFrame) -> pd.DataFrame:
     """Return zones performing >BENCHMARK_STD_THRESHOLD std devs from their COUNTRY+ZONE_TYPE peer group."""
     work = df[df["L0W_ROLL"].notna()].copy()
+
+    # Some Lead Penetration rows are loaded as percentages (e.g. 34.8) instead of ratios (0.348).
+    # Normalize them to ratio scale so comparisons and _fmt_val (which multiplies by 100) are consistent.
+    lp_pct_mask = (work["METRIC"] == "Lead Penetration") & (work["L0W_ROLL"] > 1)
+    work.loc[lp_pct_mask, "L0W_ROLL"] = work.loc[lp_pct_mask, "L0W_ROLL"] / 100
+
     records = []
 
     for (country, zone_type, metric), group in work.groupby(["COUNTRY", "ZONE_TYPE", "METRIC"]):
