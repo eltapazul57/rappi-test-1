@@ -177,7 +177,14 @@ def benchmark_zones(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_correlations(df: pd.DataFrame) -> pd.DataFrame:
-    """Return metric pairs with abs(correlation) > CORRELATION_MIN_ABS on L0W_ROLL values."""
+    """Return metric pairs with abs(Pearson r) > CORRELATION_MIN_ABS on L0W_ROLL values.
+
+    Uses Pearson correlation, which normalises by each variable's standard deviation
+    and always produces a value in [-1, 1].  Strength labels:
+      débil: 0.3 <= |r| < 0.5
+      moderada: 0.5 <= |r| < 0.7
+      fuerte: |r| >= 0.7
+    """
     pivot = df.pivot_table(
         index=["COUNTRY", "CITY", "ZONE"],
         columns="METRIC",
@@ -191,7 +198,7 @@ def compute_correlations(df: pd.DataFrame) -> pd.DataFrame:
     if pivot.shape[1] < 2 or pivot.shape[0] < 5:
         return pd.DataFrame(columns=["metric_1", "metric_2", "correlation", "type", "strength"])
 
-    corr = pivot.corr()
+    corr = pivot.corr(method="pearson")
     metrics = corr.columns.tolist()
     records = []
 
@@ -201,13 +208,20 @@ def compute_correlations(df: pd.DataFrame) -> pd.DataFrame:
             val = corr.loc[m1, m2]
             if pd.isna(val) or abs(val) < CORRELATION_MIN_ABS:
                 continue
+            abs_val = abs(val)
+            if abs_val >= 0.7:
+                strength = "fuerte"
+            elif abs_val >= 0.5:
+                strength = "moderada"
+            else:
+                strength = "débil"
             records.append(
                 {
                     "metric_1": m1,
                     "metric_2": m2,
                     "correlation": round(val, 4),
                     "type": "positiva" if val > 0 else "negativa",
-                    "strength": "fuerte" if abs(val) >= 0.7 else "moderada",
+                    "strength": strength,
                 }
             )
 
@@ -724,16 +738,17 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     # --- Correlaciones ---
     lines.append("\n## Relaciones Clave entre Metricas")
     lines.append(
-        "Pares de metricas que tienden a moverse juntas entre zonas. "
+        "Pares de metricas con correlación de Pearson significativa entre zonas (|r| > 0.3). "
         "Cuando una es baja, la otra tambien tiende a serlo. Son puntos de apalancamiento: mejorar una probablemente mejore la otra."
     )
     if df_correlations.empty:
-        lines.append("\nNo se encontraron correlaciones significativas.")
+        lines.append("\nNo se encontraron correlaciones de Pearson significativas.")
     else:
         for _, r in df_correlations.head(TOP_N).iterrows():
             direction_note = "tienden a moverse juntas" if r["type"] == "positiva" else "tienden a moverse en sentidos opuestos"
             lines.append(
-                f"- **{r['metric_1']}** y **{r['metric_2']}** {direction_note} (r={r['correlation']:.2f}). "
+                f"- **{r['metric_1']}** y **{r['metric_2']}** {direction_note} "
+                f"(correlación de Pearson r={r['correlation']:.2f}, {r['strength']}). "
                 f"Las zonas que mejoran una suelen ver ganancias en la otra tambien."
             )
 

@@ -64,5 +64,13 @@ RULES — follow every one:
 9. For evolution/trend questions about a specific zone and metric, the query must return all week columns (L8W_ROLL through L0W_ROLL) alongside COUNTRY, CITY, ZONE so the full 8-week trend is visible.
 10. For inference questions ("what explains X", "why is Y growing"), join orders_enriched with input_metrics to surface both order volume and operational metrics for the same zones. Show the metrics most likely correlated with the trend.
 11. When the user asks about "High Priority" zones or operational risk, always include ZONE_PRIORITIZATION in the SELECT and prefer filtering to High Priority zones first.
+12. When the user asks about correlations between metrics, always compute Pearson correlation — never covariance. Use this exact SQLite formula and alias:
+    (AVG(im.L0W_ROLL * im2.L0W_ROLL) - AVG(im.L0W_ROLL) * AVG(im2.L0W_ROLL)) /
+    NULLIF(SQRT(
+        (AVG(im.L0W_ROLL * im2.L0W_ROLL) - AVG(im.L0W_ROLL) * AVG(im2.L0W_ROLL)) *
+        (AVG(im2.L0W_ROLL * im2.L0W_ROLL) - AVG(im2.L0W_ROLL) * AVG(im2.L0W_ROLL))
+    ), 0)
+    AS Pearson_Correlation
+    The result column MUST be named Pearson_Correlation. Never use AVG(x*y) - AVG(x)*AVG(y) alone (that is covariance), and never name the column Covariance.
 """
 
