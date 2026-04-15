@@ -2,6 +2,7 @@
 
 import logging
 
+import numpy as np
 import pandas as pd
 
 from config import ANOMALY_THRESHOLD, BENCHMARK_STD_THRESHOLD, CORRELATION_MIN_ABS, TREND_MIN_WEEKS
@@ -28,6 +29,37 @@ NON_RATIO_METRICS = {"Gross Profit UE"}
 OPPORTUNITY_ORDER_GROWTH_THRESHOLD_PCT = 10.0
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_input_data(df: pd.DataFrame) -> pd.DataFrame:
+    df_clean = df.copy()
+    ratio_mask = ~df_clean["METRIC"].isin(NON_RATIO_METRICS)
+    for col in WEEK_COLS:
+        df_clean.loc[ratio_mask, col] = df_clean.loc[ratio_mask, col].clip(lower=0.0, upper=1.0)
+    return df_clean
+
+
+def detect_data_anomalies(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> pd.DataFrame:
+    conv_mask = (df_metrics["METRIC"].str.contains("Conversion", case=False, na=False)) & (df_metrics["L0W_ROLL"] == 0)
+    df_conv_zero = df_metrics[conv_mask][["COUNTRY", "CITY", "ZONE", "METRIC", "L0W_ROLL"]]
+    
+    if df_conv_zero.empty:
+        return pd.DataFrame(columns=["COUNTRY", "CITY", "ZONE", "alert_type", "description"])
+        
+    df_active_orders = df_orders[df_orders["L0W"] > 0][["COUNTRY", "CITY", "ZONE", "L0W"]]
+    merged = pd.merge(df_conv_zero, df_active_orders, on=["COUNTRY", "CITY", "ZONE"], how="inner")
+    
+    if merged.empty:
+        return pd.DataFrame(columns=["COUNTRY", "CITY", "ZONE", "alert_type", "description"])
+        
+    merged["alert_type"] = "Alerta de Integridad de Datos"
+    merged["description"] = merged.apply(
+        lambda r: f"Paradoja detectada: Registrando > 0 Pedidos Reales ({r['L0W']}) "
+                  f"pero en tracking el '{r['METRIC']}' arrojo 0.0%.", 
+        axis=1
+    )
+    
+    return merged[["COUNTRY", "CITY", "ZONE", "alert_type", "description"]]
 
 
 def detect_anomalies(df: pd.DataFrame, threshold: float = ANOMALY_THRESHOLD) -> pd.DataFrame:
@@ -133,8 +165,10 @@ def benchmark_zones(df: pd.DataFrame) -> pd.DataFrame:
     # Normalize them to ratio scale so comparisons and _fmt_val (which multiplies by 100) are consistent.
     lp_pct_mask = (work["METRIC"] == "Lead Penetration") & (work["L0W_ROLL"] > 1)
     work.loc[lp_pct_mask, "L0W_ROLL"] = work.loc[lp_pct_mask, "L0W_ROLL"] / 100
+    work.loc[lp_pct_mask, "L0W_ROLL"] = work.loc[lp_pct_mask, "L0W_ROLL"].clip(upper=1.0)
 
     records = []
+    EXTREME_OUTLIER_Z = 4.0
 
     for (country, zone_type, metric), group in work.groupby(["COUNTRY", "ZONE_TYPE", "METRIC"]):
         if len(group) < 3:
@@ -144,9 +178,36 @@ def benchmark_zones(df: pd.DataFrame) -> pd.DataFrame:
         if std == 0 or pd.isna(std):
             continue
 
+        # Iterative outlier removal: outliers can mask each other when they inflate std.
+        # Repeat up to 3 times — each pass recomputes mean/std on the surviving subset
+        # and drops any new |z| > 4 that only became visible once prior outliers were gone.
+        clean_mask = pd.Series(True, index=values.index)
+        for _ in range(3):
+            z_pass = (values - mean) / std
+            new_mask = z_pass.abs() <= EXTREME_OUTLIER_Z
+            if new_mask.equals(clean_mask):
+                break
+            clean_mask = new_mask
+            clean_values = values[clean_mask]
+            if len(clean_values) < 3:
+                break
+            mean, std = clean_values.mean(), clean_values.std()
+            if std == 0 or pd.isna(std):
+                break
+        else:
+            # Loop completed without early break — recompute final stats on survivors.
+            clean_values = values[clean_mask]
+            if len(clean_values) < 3:
+                continue
+            mean, std = clean_values.mean(), clean_values.std()
+
+        if std == 0 or pd.isna(std) or len(values[clean_mask]) < 3:
+            continue
+
         is_lower_better = metric in LOWER_BETTER
 
-        for _, row in group.iterrows():
+        # Benchmark only surviving (non-outlier) zones against the clean peer-group stats.
+        for _, row in group[clean_mask].iterrows():
             z = (row["L0W_ROLL"] - mean) / std
             if abs(z) < BENCHMARK_STD_THRESHOLD:
                 continue
@@ -240,6 +301,7 @@ def detect_opportunities(
     df_metrics: pd.DataFrame,
     df_orders: pd.DataFrame,
     min_growth_pct: float = OPPORTUNITY_ORDER_GROWTH_THRESHOLD_PCT,
+    min_volume_l0w: int = 10,
 ) -> pd.DataFrame:
     """Return zones with strong order growth and operational metric gaps vs peers."""
     required_orders = {"COUNTRY", "CITY", "ZONE", "L5W", "L0W"}
@@ -267,6 +329,7 @@ def detect_opportunities(
     orders_work = orders_work[
         orders_work["L5W"].notna() & orders_work["L0W"].notna() & (orders_work["L5W"] > 0)
     ].copy()
+    orders_work = orders_work[orders_work["L0W"] >= min_volume_l0w].copy()
     if orders_work.empty:
         return pd.DataFrame(
             columns=[
@@ -289,6 +352,9 @@ def detect_opportunities(
 
     orders_work["orders_growth_pct"] = (orders_work["L0W"] - orders_work["L5W"]) / orders_work["L5W"] * 100
     high_growth = orders_work[orders_work["orders_growth_pct"] >= min_growth_pct].copy()
+    high_growth["growth_flag"] = high_growth["orders_growth_pct"].apply(
+        lambda x: "[VOLUMEN INESTABLE] " if x > 400.0 else ""
+    )
     if high_growth.empty:
         return pd.DataFrame(
             columns=[
@@ -363,6 +429,7 @@ def detect_opportunities(
     merged["opportunity_type"] = "crecimiento_con_brecha_metrica"
     merged["recommendation"] = merged.apply(
         lambda r: (
+            f"{r.get('growth_flag', '')}"
             f"Los pedidos estan creciendo {r['orders_growth_pct']:.1f}% en esta zona. "
             f"Prioriza cerrar la brecha de {r['METRIC']} vs pares en las proximas 2 semanas."
         ),
@@ -596,8 +663,11 @@ def _high_priority_zones(df_metrics: pd.DataFrame) -> list[str]:
     )
 
 
-def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
+def generate_report(df_metrics_raw: pd.DataFrame, df_orders: pd.DataFrame) -> str:
     """Run all insight functions and return a compact executive Markdown report."""
+    df_metrics = sanitize_input_data(df_metrics_raw)
+    data_anomalies = detect_data_anomalies(df_metrics, df_orders)
+
     df_anomalies = _dedup(detect_anomalies(df_metrics), "change_pct", ascending=False)
     df_trends = detect_concerning_trends(df_metrics).drop_duplicates(subset=["ZONE", "METRIC"]).reset_index(drop=True)
     df_benchmarks = _dedup(benchmark_zones(df_metrics), "z_score", ascending=False)
@@ -607,6 +677,11 @@ def generate_report(df_metrics: pd.DataFrame, df_orders: pd.DataFrame) -> str:
 
     TOP_N = 5
     lines: list[str] = []
+
+    if not data_anomalies.empty:
+        lines.append("## ALERTAS CRITICAS DE INTEGRIDAD")
+        for _, r in data_anomalies.iterrows():
+            lines.append(f"- **{r['COUNTRY']} / {r['ZONE']}**: {r['description']}")
 
     # --- Zonas de Alta Prioridad ---
     if high_priority_zones:
